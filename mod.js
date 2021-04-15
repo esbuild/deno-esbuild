@@ -633,8 +633,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.10") {
-        throw new Error(`Cannot start service: Host version "${"0.11.10"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.11") {
+        throw new Error(`Cannot start service: Host version "${"0.11.11"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1387,7 +1387,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.10";
+var version = "0.11.11";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1443,7 +1443,14 @@ function getCachePath(name) {
         baseDir += "/Library/Caches";
       break;
     case "windows":
-      baseDir = Deno.env.get("FOLDERID_LocalAppData");
+      baseDir = Deno.env.get("LOCALAPPDATA");
+      if (!baseDir) {
+        baseDir = Deno.env.get("USERPROFILE");
+        if (baseDir)
+          baseDir += "/AppData/Local";
+      }
+      if (baseDir)
+        baseDir += "/Cache";
       break;
     case "linux":
       const xdg = Deno.env.get("XDG_CACHE_HOME");
@@ -1484,6 +1491,9 @@ function extractFileFromTarGzip(buffer, file) {
   throw new Error(`Could not find ${JSON.stringify(file)} in archive`);
 }
 async function install() {
+  const overridePath = Deno.env.get("ESBUILD_BINARY_PATH");
+  if (overridePath)
+    return overridePath;
   const platformKey = Deno.build.target;
   const knownWindowsPackages = {
     "x86_64-pc-windows-msvc": "esbuild-windows-64"
