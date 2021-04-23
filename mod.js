@@ -321,6 +321,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let absWorkingDir = getFlag(options, keys, "absWorkingDir", mustBeString);
   let stdin = getFlag(options, keys, "stdin", mustBeObject);
   let write = getFlag(options, keys, "write", mustBeBoolean) ?? writeDefault;
+  let allowOverwrite = getFlag(options, keys, "allowOverwrite", mustBeBoolean);
   let incremental = getFlag(options, keys, "incremental", mustBeBoolean) === true;
   keys.plugins = true;
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
@@ -328,6 +329,8 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     flags.push(`--sourcemap${sourcemap === true ? "" : `=${sourcemap}`}`);
   if (bundle)
     flags.push("--bundle");
+  if (allowOverwrite)
+    flags.push("--allow-overwrite");
   if (watch) {
     flags.push("--watch");
     if (typeof watch === "boolean") {
@@ -633,8 +636,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.12") {
-        throw new Error(`Cannot start service: Host version "${"0.11.12"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.13") {
+        throw new Error(`Cannot start service: Host version "${"0.11.13"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1387,7 +1390,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.12";
+var version = "0.11.13";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
