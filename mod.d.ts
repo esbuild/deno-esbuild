@@ -7,6 +7,7 @@ export type TreeShaking = true | 'ignore-annotations';
 
 interface CommonOptions {
   sourcemap?: boolean | 'inline' | 'external' | 'both';
+  legalComments?: 'none' | 'inline' | 'eof' | 'linked' | 'external';
   sourceRoot?: string;
   sourcesContent?: boolean;
 
@@ -78,6 +79,7 @@ export interface StdinOptions {
 }
 
 export interface Message {
+  pluginName: string;
   text: string;
   location: Location | null;
   notes: Note[];
@@ -118,6 +120,7 @@ export interface BuildIncremental extends BuildResult {
 }
 
 export interface BuildResult {
+  errors: Message[];
   warnings: Message[];
   outputFiles?: OutputFile[]; // Only when "write: false"
   rebuild?: BuildInvalidate; // Only when "incremental: true"
@@ -186,10 +189,19 @@ export interface Plugin {
 
 export interface PluginBuild {
   initialOptions: BuildOptions;
+  onStart(callback: () =>
+    (OnStartResult | null | undefined | Promise<OnStartResult | null | undefined>)): void;
+  onEnd(callback: (result: BuildResult) =>
+    (undefined | Promise<undefined>)): void;
   onResolve(options: OnResolveOptions, callback: (args: OnResolveArgs) =>
     (OnResolveResult | null | undefined | Promise<OnResolveResult | null | undefined>)): void;
   onLoad(options: OnLoadOptions, callback: (args: OnLoadArgs) =>
     (OnLoadResult | null | undefined | Promise<OnLoadResult | null | undefined>)): void;
+}
+
+export interface OnStartResult {
+  errors?: PartialMessage[];
+  warnings?: PartialMessage[];
 }
 
 export interface OnResolveOptions {
@@ -261,6 +273,7 @@ export interface OnLoadResult {
 }
 
 export interface PartialMessage {
+  pluginName?: string;
   text?: string;
   location?: Partial<Location> | null;
   notes?: PartialNote[];
