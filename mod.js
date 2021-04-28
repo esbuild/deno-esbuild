@@ -647,8 +647,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.15") {
-        throw new Error(`Cannot start service: Host version "${"0.11.15"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.16") {
+        throw new Error(`Cannot start service: Host version "${"0.11.16"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1054,8 +1054,7 @@ function createChannel(streamIn) {
       stdinResolveDir,
       absWorkingDir: absWorkingDir || defaultWD2,
       incremental,
-      nodePaths,
-      hasOnRebuild: !!(watch && watch.onRebuild)
+      nodePaths
     };
     if (requestPlugins)
       request.plugins = requestPlugins;
@@ -1124,23 +1123,29 @@ function createChannel(streamIn) {
               });
               refs.unref();
             };
-            if (watch && watch.onRebuild) {
+            if (watch) {
               watchCallbacks.set(response.watchID, (serviceStopError, watchResponse) => {
-                if (serviceStopError)
-                  return watch.onRebuild(serviceStopError, null);
+                if (serviceStopError) {
+                  if (watch.onRebuild)
+                    watch.onRebuild(serviceStopError, null);
+                  return;
+                }
                 let result2 = {
                   errors: replaceDetailsInMessages(watchResponse.errors, details),
                   warnings: replaceDetailsInMessages(watchResponse.warnings, details)
                 };
                 runOnEndCallbacks(result2, () => {
                   if (result2.errors.length > 0) {
-                    return watch.onRebuild(failureErrorWithLog("Build failed", result2.errors, result2.warnings), null);
+                    if (watch.onRebuild)
+                      watch.onRebuild(failureErrorWithLog("Build failed", result2.errors, result2.warnings), null);
+                    return;
                   }
                   copyResponseToResult(watchResponse, result2);
                   if (watchResponse.rebuildID !== void 0)
                     result2.rebuild = rebuild;
                   result2.stop = stop2;
-                  watch.onRebuild(null, result2);
+                  if (watch.onRebuild)
+                    watch.onRebuild(null, result2);
                 });
               });
             }
@@ -1485,7 +1490,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.15";
+var version = "0.11.16";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
