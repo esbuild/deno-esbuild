@@ -647,8 +647,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.16") {
-        throw new Error(`Cannot start service: Host version "${"0.11.16"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.17") {
+        throw new Error(`Cannot start service: Host version "${"0.11.17"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1134,13 +1134,13 @@ function createChannel(streamIn) {
                   errors: replaceDetailsInMessages(watchResponse.errors, details),
                   warnings: replaceDetailsInMessages(watchResponse.warnings, details)
                 };
+                copyResponseToResult(watchResponse, result2);
                 runOnEndCallbacks(result2, () => {
                   if (result2.errors.length > 0) {
                     if (watch.onRebuild)
                       watch.onRebuild(failureErrorWithLog("Build failed", result2.errors, result2.warnings), null);
                     return;
                   }
-                  copyResponseToResult(watchResponse, result2);
                   if (watchResponse.rebuildID !== void 0)
                     result2.rebuild = rebuild;
                   result2.stop = stop2;
@@ -1490,7 +1490,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.16";
+var version = "0.11.17";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1632,9 +1632,25 @@ var ensureServiceIsRunning = () => {
       stopService = () => {
         child.close();
       };
+      let writeQueue = [];
+      let isQueueLocked = false;
+      const startWriteFromQueueWorker = () => {
+        if (isQueueLocked || writeQueue.length === 0)
+          return;
+        isQueueLocked = true;
+        child.stdin.write(writeQueue[0]).then((bytesWritten) => {
+          isQueueLocked = false;
+          if (bytesWritten === writeQueue[0].length)
+            writeQueue.shift();
+          else
+            writeQueue[0] = writeQueue[0].subarray(bytesWritten);
+          startWriteFromQueueWorker();
+        });
+      };
       const {readFromStdout, afterClose, service} = createChannel({
         writeToStdin(bytes) {
-          child.stdin.write(bytes);
+          writeQueue.push(bytes);
+          startWriteFromQueueWorker();
         },
         isSync: false,
         isBrowser: false
