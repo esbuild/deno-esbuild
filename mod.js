@@ -647,8 +647,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.18") {
-        throw new Error(`Cannot start service: Host version "${"0.11.18"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.19") {
+        throw new Error(`Cannot start service: Host version "${"0.11.19"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1490,7 +1490,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.18";
+var version = "0.11.19";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1630,7 +1630,12 @@ var ensureServiceIsRunning = () => {
         stderr: "inherit"
       });
       stopService = () => {
+        child.stdin.close();
+        child.stdout.close();
         child.close();
+        initializeWasCalled = false;
+        longLivedService = void 0;
+        stopService = void 0;
       };
       let writeQueue = [];
       let isQueueLocked = false;
@@ -1662,6 +1667,12 @@ var ensureServiceIsRunning = () => {
         } else {
           readFromStdout(stdoutBuffer.subarray(0, n));
           readMoreStdout();
+        }
+      }).catch((e) => {
+        if (e instanceof Deno.errors.Interrupted || e instanceof Deno.errors.BadResource) {
+          afterClose();
+        } else {
+          throw e;
         }
       });
       readMoreStdout();
