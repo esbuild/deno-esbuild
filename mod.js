@@ -216,7 +216,7 @@ function pushLogFlags(flags, options, keys, isTTY, logLevelDefault) {
   let color = getFlag(options, keys, "color", mustBeBoolean);
   let logLevel = getFlag(options, keys, "logLevel", mustBeString);
   let logLimit = getFlag(options, keys, "logLimit", mustBeInteger);
-  if (color)
+  if (color !== void 0)
     flags.push(`--color=${color}`);
   else if (isTTY)
     flags.push(`--color=true`);
@@ -647,8 +647,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.11.19") {
-        throw new Error(`Cannot start service: Host version "${"0.11.19"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.11.20") {
+        throw new Error(`Cannot start service: Host version "${"0.11.20"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -873,15 +873,15 @@ function createChannel(streamIn) {
           throw new Error(`Invalid command: ` + request.command);
       }
     };
-    let runOnEndCallbacks = (result, done) => done();
+    let runOnEndCallbacks = (result, logPluginError, done) => done();
     if (onEndCallbacks.length > 0) {
-      runOnEndCallbacks = (result, done) => {
+      runOnEndCallbacks = (result, logPluginError, done) => {
         (async () => {
           for (const {name, callback: callback2, note} of onEndCallbacks) {
             try {
               await callback2(result);
             } catch (e) {
-              result.errors.push(extractErrorMessageV8(e, streamIn, stash, note && note(), name));
+              result.errors.push(await new Promise((resolve) => logPluginError(e, name, note && note(), resolve)));
             }
           }
         })().then(done);
@@ -956,15 +956,20 @@ function createChannel(streamIn) {
         plugins = value;
       }
     }
-    let handleError = (e, pluginName) => {
+    let logPluginError = (e, pluginName, note, done) => {
       let flags = [];
       try {
         pushLogFlags(flags, options, {}, isTTY, buildLogLevelDefault);
       } catch {
       }
-      const error = extractErrorMessageV8(e, streamIn, details, void 0, pluginName);
-      sendRequest(refs, {command: "error", flags, error}, () => {
-        error.detail = details.load(error.detail);
+      const message = extractErrorMessageV8(e, streamIn, details, note, pluginName);
+      sendRequest(refs, {command: "error", flags, error: message}, () => {
+        message.detail = details.load(message.detail);
+        done(message);
+      });
+    };
+    let handleError = (e, pluginName) => {
+      logPluginError(e, pluginName, void 0, (error) => {
         callback(failureErrorWithLog("Build failed", [error], []), null);
       });
     };
@@ -980,6 +985,7 @@ function createChannel(streamIn) {
               ...args,
               key,
               details,
+              logPluginError,
               requestPlugins: result.requestPlugins,
               runOnEndCallbacks: result.runOnEndCallbacks,
               pluginRefs: result.pluginRefs
@@ -995,8 +1001,9 @@ function createChannel(streamIn) {
           ...args,
           key,
           details,
+          logPluginError,
           requestPlugins: null,
-          runOnEndCallbacks: (result, done) => done(),
+          runOnEndCallbacks: (result, logPluginError2, done) => done(),
           pluginRefs: null
         });
       } catch (e) {
@@ -1014,6 +1021,7 @@ function createChannel(streamIn) {
     callback,
     key,
     details,
+    logPluginError,
     requestPlugins,
     runOnEndCallbacks,
     pluginRefs
@@ -1075,7 +1083,7 @@ function createChannel(streamIn) {
         warnings: replaceDetailsInMessages(response.warnings, details)
       };
       copyResponseToResult(response, result);
-      runOnEndCallbacks(result, () => {
+      runOnEndCallbacks(result, logPluginError, () => {
         if (result.errors.length > 0) {
           return callback2(failureErrorWithLog("Build failed", result.errors, result.warnings), null);
         }
@@ -1135,7 +1143,7 @@ function createChannel(streamIn) {
                   warnings: replaceDetailsInMessages(watchResponse.warnings, details)
                 };
                 copyResponseToResult(watchResponse, result2);
-                runOnEndCallbacks(result2, () => {
+                runOnEndCallbacks(result2, logPluginError, () => {
                   if (result2.errors.length > 0) {
                     if (watch.onRebuild)
                       watch.onRebuild(failureErrorWithLog("Build failed", result2.errors, result2.warnings), null);
@@ -1490,7 +1498,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.11.19";
+var version = "0.11.20";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
