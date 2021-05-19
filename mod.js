@@ -80,7 +80,7 @@ function decodePacket(bytes) {
   if (bb.ptr !== bytes.length) {
     throw new Error("Invalid packet");
   }
-  return {id, isRequest, value};
+  return { id, isRequest, value };
 }
 var ByteBuffer = class {
   constructor(buf = new Uint8Array(1024)) {
@@ -147,7 +147,7 @@ if (typeof TextEncoder !== "undefined" && typeof TextDecoder !== "undefined") {
     return buffer;
   };
   decodeUTF8 = (bytes) => {
-    let {buffer, byteOffset, byteLength} = bytes;
+    let { buffer, byteOffset, byteLength } = bytes;
     return Buffer.from(buffer, byteOffset, byteLength).toString();
   };
 } else {
@@ -236,6 +236,7 @@ function pushCommonFlags(flags, options, keys) {
   let minifyIdentifiers = getFlag(options, keys, "minifyIdentifiers", mustBeBoolean);
   let charset = getFlag(options, keys, "charset", mustBeString);
   let treeShaking = getFlag(options, keys, "treeShaking", mustBeStringOrBoolean);
+  let jsx = getFlag(options, keys, "jsx", mustBeString);
   let jsxFactory = getFlag(options, keys, "jsxFactory", mustBeString);
   let jsxFragment = getFlag(options, keys, "jsxFragment", mustBeString);
   let define = getFlag(options, keys, "define", mustBeObject);
@@ -269,6 +270,8 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--charset=${charset}`);
   if (treeShaking !== void 0 && treeShaking !== true)
     flags.push(`--tree-shaking=${treeShaking}`);
+  if (jsx)
+    flags.push(`--jsx=${jsx}`);
   if (jsxFactory)
     flags.push(`--jsx-factory=${jsxFactory}`);
   if (jsxFragment)
@@ -342,7 +345,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
       let watchKeys = Object.create(null);
       let onRebuild = getFlag(watch, watchKeys, "onRebuild", mustBeFunction);
       checkForInvalidFlags(watch, watchKeys, `on "watch" in ${callName}() call`);
-      watchMode = {onRebuild};
+      watchMode = { onRebuild };
     }
   }
   if (splitting)
@@ -572,12 +575,12 @@ function createChannel(streamIn) {
     });
     if (refs)
       refs.ref();
-    streamIn.writeToStdin(encodePacket({id, isRequest: true, value}));
+    streamIn.writeToStdin(encodePacket({ id, isRequest: true, value }));
   };
   let sendResponse = (id, value) => {
     if (isClosed)
       throw new Error("The service is no longer running");
-    streamIn.writeToStdin(encodePacket({id, isRequest: false, value}));
+    streamIn.writeToStdin(encodePacket({ id, isRequest: false, value }));
   };
   let handleRequest = async (id, request) => {
     try {
@@ -639,7 +642,7 @@ function createChannel(streamIn) {
           throw new Error(`Invalid command: ` + request.command);
       }
     } catch (e) {
-      sendResponse(id, {errors: [extractErrorMessageV8(e, streamIn, null, void 0, "")]});
+      sendResponse(id, { errors: [extractErrorMessageV8(e, streamIn, null, void 0, "")] });
     }
   };
   let isFirstPacket = true;
@@ -647,8 +650,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.0") {
-        throw new Error(`Cannot start service: Host version "${"0.12.0"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.1") {
+        throw new Error(`Cannot start service: Host version "${"0.12.1"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -696,12 +699,12 @@ function createChannel(streamIn) {
           onStart(callback2) {
             let registeredText = `This error came from the "onStart" callback registered here`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onStart");
-            onStartCallbacks.push({name, callback: callback2, note: registeredNote});
+            onStartCallbacks.push({ name, callback: callback2, note: registeredNote });
           },
           onEnd(callback2) {
             let registeredText = `This error came from the "onEnd" callback registered here`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onEnd");
-            onEndCallbacks.push({name, callback: callback2, note: registeredNote});
+            onEndCallbacks.push({ name, callback: callback2, note: registeredNote });
           },
           onResolve(options, callback2) {
             let registeredText = `This error came from the "onResolve" callback registered here`;
@@ -713,8 +716,8 @@ function createChannel(streamIn) {
             if (filter == null)
               throw new Error(`onResolve() call is missing a filter`);
             let id = nextCallbackID++;
-            onResolveCallbacks[id] = {name, callback: callback2, note: registeredNote};
-            plugin.onResolve.push({id, filter: filter.source, namespace: namespace || ""});
+            onResolveCallbacks[id] = { name, callback: callback2, note: registeredNote };
+            plugin.onResolve.push({ id, filter: filter.source, namespace: namespace || "" });
           },
           onLoad(options, callback2) {
             let registeredText = `This error came from the "onLoad" callback registered here`;
@@ -726,22 +729,22 @@ function createChannel(streamIn) {
             if (filter == null)
               throw new Error(`onLoad() call is missing a filter`);
             let id = nextCallbackID++;
-            onLoadCallbacks[id] = {name, callback: callback2, note: registeredNote};
-            plugin.onLoad.push({id, filter: filter.source, namespace: namespace || ""});
+            onLoadCallbacks[id] = { name, callback: callback2, note: registeredNote };
+            plugin.onLoad.push({ id, filter: filter.source, namespace: namespace || "" });
           }
         });
         if (promise)
           await promise;
         requestPlugins.push(plugin);
       } catch (e) {
-        return {ok: false, error: e, pluginName: name};
+        return { ok: false, error: e, pluginName: name };
       }
     }
     const callback = async (request) => {
       switch (request.command) {
         case "start": {
-          let response = {errors: [], warnings: []};
-          await Promise.all(onStartCallbacks.map(async ({name, callback: callback2, note}) => {
+          let response = { errors: [], warnings: [] };
+          await Promise.all(onStartCallbacks.map(async ({ name, callback: callback2, note }) => {
             try {
               let result = await callback2();
               if (result != null) {
@@ -766,7 +769,7 @@ function createChannel(streamIn) {
           let response = {}, name = "", callback2, note;
           for (let id of request.ids) {
             try {
-              ({name, callback: callback2, note} = onResolveCallbacks[id]);
+              ({ name, callback: callback2, note } = onResolveCallbacks[id]);
               let result = await callback2({
                 path: request.path,
                 importer: request.importer,
@@ -811,7 +814,7 @@ function createChannel(streamIn) {
                 break;
               }
             } catch (e) {
-              return {id, errors: [extractErrorMessageV8(e, streamIn, stash, note && note(), name)]};
+              return { id, errors: [extractErrorMessageV8(e, streamIn, stash, note && note(), name)] };
             }
           }
           return response;
@@ -820,7 +823,7 @@ function createChannel(streamIn) {
           let response = {}, name = "", callback2, note;
           for (let id of request.ids) {
             try {
-              ({name, callback: callback2, note} = onLoadCallbacks[id]);
+              ({ name, callback: callback2, note } = onLoadCallbacks[id]);
               let result = await callback2({
                 path: request.path,
                 namespace: request.namespace,
@@ -864,7 +867,7 @@ function createChannel(streamIn) {
                 break;
               }
             } catch (e) {
-              return {id, errors: [extractErrorMessageV8(e, streamIn, stash, note && note(), name)]};
+              return { id, errors: [extractErrorMessageV8(e, streamIn, stash, note && note(), name)] };
             }
           }
           return response;
@@ -877,7 +880,7 @@ function createChannel(streamIn) {
     if (onEndCallbacks.length > 0) {
       runOnEndCallbacks = (result, logPluginError, done) => {
         (async () => {
-          for (const {name, callback: callback2, note} of onEndCallbacks) {
+          for (const { name, callback: callback2, note } of onEndCallbacks) {
             try {
               await callback2(result);
             } catch (e) {
@@ -921,7 +924,7 @@ function createChannel(streamIn) {
           resolve();
       };
     });
-    request.serve = {serveID};
+    request.serve = { serveID };
     checkForInvalidFlags(options, keys, `in serve() call`);
     if (port !== void 0)
       request.serve.port = port;
@@ -936,7 +939,7 @@ function createChannel(streamIn) {
     return {
       wait,
       stop() {
-        sendRequest(refs, {command: "serve-stop", serveID}, () => {
+        sendRequest(refs, { command: "serve-stop", serveID }, () => {
         });
       }
     };
@@ -947,7 +950,7 @@ function createChannel(streamIn) {
     let key = nextBuildKey++;
     const details = createObjectStash();
     let plugins;
-    let {refs, options, isTTY, callback} = args;
+    let { refs, options, isTTY, callback } = args;
     if (typeof options === "object") {
       let value = options.plugins;
       if (value !== void 0) {
@@ -963,7 +966,7 @@ function createChannel(streamIn) {
       } catch {
       }
       const message = extractErrorMessageV8(e, streamIn, details, note, pluginName);
-      sendRequest(refs, {command: "error", flags, error: message}, () => {
+      sendRequest(refs, { command: "error", flags, error: message }, () => {
         message.detail = details.load(message.detail);
         done(message);
       });
@@ -1093,9 +1096,9 @@ function createChannel(streamIn) {
             rebuild = () => new Promise((resolve, reject) => {
               if (isDisposed || isClosed)
                 throw new Error("Cannot rebuild");
-              sendRequest(refs, {command: "rebuild", rebuildID: response.rebuildID}, (error2, response2) => {
+              sendRequest(refs, { command: "rebuild", rebuildID: response.rebuildID }, (error2, response2) => {
                 if (error2) {
-                  const message = {pluginName: "", text: error2, location: null, notes: [], detail: void 0};
+                  const message = { pluginName: "", text: error2, location: null, notes: [], detail: void 0 };
                   return callback2(failureErrorWithLog("Build failed", [message], []), null);
                 }
                 buildResponseToResult(response2, (error3, result3) => {
@@ -1111,7 +1114,7 @@ function createChannel(streamIn) {
               if (isDisposed)
                 return;
               isDisposed = true;
-              sendRequest(refs, {command: "rebuild-dispose", rebuildID: response.rebuildID}, () => {
+              sendRequest(refs, { command: "rebuild-dispose", rebuildID: response.rebuildID }, () => {
               });
               refs.unref();
             };
@@ -1127,7 +1130,7 @@ function createChannel(streamIn) {
                 return;
               isStopped = true;
               watchCallbacks.delete(response.watchID);
-              sendRequest(refs, {command: "watch-stop", watchID: response.watchID}, () => {
+              sendRequest(refs, { command: "watch-stop", watchID: response.watchID }, () => {
               });
               refs.unref();
             };
@@ -1193,7 +1196,7 @@ function createChannel(streamIn) {
       return buildResponseToResult(response, callback);
     });
   };
-  let transform2 = ({callName, refs, input, options, isTTY, fs, callback}) => {
+  let transform2 = ({ callName, refs, input, options, isTTY, fs, callback }) => {
     const details = createObjectStash();
     let start = (inputPath) => {
       try {
@@ -1212,7 +1215,7 @@ function createChannel(streamIn) {
           let errors = replaceDetailsInMessages(response.errors, details);
           let warnings = replaceDetailsInMessages(response.warnings, details);
           let outstanding = 1;
-          let next = () => --outstanding === 0 && callback(null, {warnings, code: response.code, map: response.map});
+          let next = () => --outstanding === 0 && callback(null, { warnings, code: response.code, map: response.map });
           if (errors.length > 0)
             return callback(failureErrorWithLog("Transform failed", errors, warnings), null);
           if (response.codeFS) {
@@ -1246,7 +1249,7 @@ function createChannel(streamIn) {
         } catch {
         }
         const error = extractErrorMessageV8(e, streamIn, details, void 0, "");
-        sendRequest(refs, {command: "error", flags, error}, () => {
+        sendRequest(refs, { command: "error", flags, error }, () => {
           error.detail = details.load(error.detail);
           callback(failureErrorWithLog("Transform failed", [error], []), null);
         });
@@ -1258,7 +1261,7 @@ function createChannel(streamIn) {
     }
     start(null);
   };
-  let formatMessages2 = ({callName, refs, messages, options, callback}) => {
+  let formatMessages2 = ({ callName, refs, messages, options, callback }) => {
     let result = sanitizeMessages(messages, "messages", null, "");
     if (!options)
       throw new Error(`Missing second argument in ${callName}() call`);
@@ -1324,7 +1327,7 @@ function extractCallerV8(e, streamIn, ident) {
       lines.splice(1, 1);
       let location = parseStackLinesV8(streamIn, lines, ident);
       if (location) {
-        note = {text: e.message, location};
+        note = { text: e.message, location };
         return note;
       }
     } catch {
@@ -1342,7 +1345,7 @@ function extractErrorMessageV8(e, streamIn, stash, note, pluginName) {
     location = parseStackLinesV8(streamIn, (e.stack + "").split("\n"), "");
   } catch {
   }
-  return {pluginName, text, location, notes: note ? [note] : [], detail: stash ? stash.store(e) : -1};
+  return { pluginName, text, location, notes: note ? [note] : [], detail: stash ? stash.store(e) : -1 };
 }
 function parseStackLinesV8(streamIn, lines, ident) {
   let at = "    at ";
@@ -1398,7 +1401,7 @@ function failureErrorWithLog(text, errors, warnings) {
     if (!e.location)
       return `
 error: ${e.text}`;
-    let {file, line, column} = e.location;
+    let { file, line, column } = e.location;
     let pluginText = e.pluginName ? `[plugin: ${e.pluginName}] ` : "";
     return `
 ${file}:${line}:${column}: error: ${pluginText}${e.text}`;
@@ -1481,7 +1484,7 @@ function sanitizeStringArray(values, property) {
   }
   return result;
 }
-function convertOutputFiles({path, contents}) {
+function convertOutputFiles({ path, contents }) {
   let text = null;
   return {
     path,
@@ -1498,7 +1501,7 @@ function convertOutputFiles({path, contents}) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.12.0";
+var version = "0.12.1";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1529,7 +1532,7 @@ var initialize = async (options) => {
   initializeWasCalled = true;
 };
 async function installFromNPM(name, subpath) {
-  const {finalPath, finalDir} = getCachePath(name);
+  const { finalPath, finalDir } = getCachePath(name);
   try {
     await Deno.stat(finalPath);
     return finalPath;
@@ -1542,7 +1545,7 @@ async function installFromNPM(name, subpath) {
     recursive: true,
     mode: 448
   });
-  await Deno.writeFile(finalPath, executable, {mode: 493});
+  await Deno.writeFile(finalPath, executable, { mode: 493 });
   return finalPath;
 }
 function getCachePath(name) {
@@ -1578,7 +1581,7 @@ function getCachePath(name) {
     throw new Error("Failed to find cache directory");
   const finalDir = baseDir + `/esbuild/bin`;
   const finalPath = finalDir + `/${name}@${version}`;
-  return {finalPath, finalDir};
+  return { finalPath, finalDir };
 }
 function extractFileFromTarGzip(buffer, file) {
   try {
@@ -1660,7 +1663,7 @@ var ensureServiceIsRunning = () => {
           startWriteFromQueueWorker();
         });
       };
-      const {readFromStdout, afterClose, service} = createChannel({
+      const { readFromStdout, afterClose, service } = createChannel({
         writeToStdin(bytes) {
           writeQueue.push(bytes);
           startWriteFromQueueWorker();
