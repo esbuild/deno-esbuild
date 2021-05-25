@@ -650,8 +650,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.1") {
-        throw new Error(`Cannot start service: Host version "${"0.12.1"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.2") {
+        throw new Error(`Cannot start service: Host version "${"0.12.2"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1501,7 +1501,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.12.1";
+var version = "0.12.2";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
