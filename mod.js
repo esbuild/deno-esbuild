@@ -1,44 +1,4 @@
 /// <reference types="./mod.d.ts" />
-var __defProp = Object.defineProperty;
-var __defProps = Object.defineProperties;
-var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
-var __getOwnPropSymbols = Object.getOwnPropertySymbols;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __propIsEnum = Object.prototype.propertyIsEnumerable;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __spreadValues = (a, b) => {
-  for (var prop in b || (b = {}))
-    if (__hasOwnProp.call(b, prop))
-      __defNormalProp(a, prop, b[prop]);
-  if (__getOwnPropSymbols)
-    for (var prop of __getOwnPropSymbols(b)) {
-      if (__propIsEnum.call(b, prop))
-        __defNormalProp(a, prop, b[prop]);
-    }
-  return a;
-};
-var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
-var __async = (__this, __arguments, generator) => {
-  return new Promise((resolve, reject) => {
-    var fulfilled = (value) => {
-      try {
-        step(generator.next(value));
-      } catch (e) {
-        reject(e);
-      }
-    };
-    var rejected = (value) => {
-      try {
-        step(generator.throw(value));
-      } catch (e) {
-        reject(e);
-      }
-    };
-    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
-    step((generator = generator.apply(__this, __arguments)).next());
-  });
-};
-
 // lib/shared/stdio_protocol.ts
 function encodePacket(packet) {
   let visit = (value) => {
@@ -330,7 +290,6 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--keep-names`);
 }
 function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDefault) {
-  var _a;
   let flags = [];
   let entries = [];
   let keys = Object.create(null);
@@ -367,7 +326,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let entryPoints = getFlag(options, keys, "entryPoints", mustBeArrayOrRecord);
   let absWorkingDir = getFlag(options, keys, "absWorkingDir", mustBeString);
   let stdin = getFlag(options, keys, "stdin", mustBeObject);
-  let write = (_a = getFlag(options, keys, "write", mustBeBoolean)) != null ? _a : writeDefault;
+  let write = getFlag(options, keys, "write", mustBeBoolean) ?? writeDefault;
   let allowOverwrite = getFlag(options, keys, "allowOverwrite", mustBeBoolean);
   let incremental = getFlag(options, keys, "incremental", mustBeBoolean) === true;
   keys.plugins = true;
@@ -623,7 +582,7 @@ function createChannel(streamIn) {
       throw new Error("The service is no longer running");
     streamIn.writeToStdin(encodePacket({ id, isRequest: false, value }));
   };
-  let handleRequest = (id, request) => __async(this, null, function* () {
+  let handleRequest = async (id, request) => {
     try {
       switch (request.command) {
         case "ping": {
@@ -635,7 +594,7 @@ function createChannel(streamIn) {
           if (!callback)
             sendResponse(id, {});
           else
-            sendResponse(id, yield callback(request));
+            sendResponse(id, await callback(request));
           break;
         }
         case "resolve": {
@@ -643,7 +602,7 @@ function createChannel(streamIn) {
           if (!callback)
             sendResponse(id, {});
           else
-            sendResponse(id, yield callback(request));
+            sendResponse(id, await callback(request));
           break;
         }
         case "load": {
@@ -651,7 +610,7 @@ function createChannel(streamIn) {
           if (!callback)
             sendResponse(id, {});
           else
-            sendResponse(id, yield callback(request));
+            sendResponse(id, await callback(request));
           break;
         }
         case "serve-request": {
@@ -685,14 +644,14 @@ function createChannel(streamIn) {
     } catch (e) {
       sendResponse(id, { errors: [extractErrorMessageV8(e, streamIn, null, void 0, "")] });
     }
-  });
+  };
   let isFirstPacket = true;
   let handleIncomingPacket = (bytes) => {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.5") {
-        throw new Error(`Cannot start service: Host version "${"0.12.5"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.6") {
+        throw new Error(`Cannot start service: Host version "${"0.12.6"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -708,7 +667,7 @@ function createChannel(streamIn) {
         callback(null, packet.value);
     }
   };
-  let handlePlugins = (initialOptions, plugins, buildKey, stash) => __async(this, null, function* () {
+  let handlePlugins = async (initialOptions, plugins, buildKey, stash) => {
     let onStartCallbacks = [];
     let onEndCallbacks = [];
     let onResolveCallbacks = {};
@@ -775,19 +734,19 @@ function createChannel(streamIn) {
           }
         });
         if (promise)
-          yield promise;
+          await promise;
         requestPlugins.push(plugin);
       } catch (e) {
         return { ok: false, error: e, pluginName: name };
       }
     }
-    const callback = (request) => __async(this, null, function* () {
+    const callback = async (request) => {
       switch (request.command) {
         case "start": {
           let response = { errors: [], warnings: [] };
-          yield Promise.all(onStartCallbacks.map((_0) => __async(this, [_0], function* ({ name, callback: callback2, note }) {
+          await Promise.all(onStartCallbacks.map(async ({ name, callback: callback2, note }) => {
             try {
-              let result = yield callback2();
+              let result = await callback2();
               if (result != null) {
                 if (typeof result !== "object")
                   throw new Error(`Expected onStart() callback in plugin ${JSON.stringify(name)} to return an object`);
@@ -803,7 +762,7 @@ function createChannel(streamIn) {
             } catch (e) {
               response.errors.push(extractErrorMessageV8(e, streamIn, stash, note && note(), name));
             }
-          })));
+          }));
           return response;
         }
         case "resolve": {
@@ -811,7 +770,7 @@ function createChannel(streamIn) {
           for (let id of request.ids) {
             try {
               ({ name, callback: callback2, note } = onResolveCallbacks[id]);
-              let result = yield callback2({
+              let result = await callback2({
                 path: request.path,
                 importer: request.importer,
                 namespace: request.namespace,
@@ -865,7 +824,7 @@ function createChannel(streamIn) {
           for (let id of request.ids) {
             try {
               ({ name, callback: callback2, note } = onLoadCallbacks[id]);
-              let result = yield callback2({
+              let result = await callback2({
                 path: request.path,
                 namespace: request.namespace,
                 pluginData: stash.load(request.pluginData)
@@ -916,19 +875,19 @@ function createChannel(streamIn) {
         default:
           throw new Error(`Invalid command: ` + request.command);
       }
-    });
+    };
     let runOnEndCallbacks = (result, logPluginError, done) => done();
     if (onEndCallbacks.length > 0) {
       runOnEndCallbacks = (result, logPluginError, done) => {
-        (() => __async(this, null, function* () {
+        (async () => {
           for (const { name, callback: callback2, note } of onEndCallbacks) {
             try {
-              yield callback2(result);
+              await callback2(result);
             } catch (e) {
-              result.errors.push(yield new Promise((resolve) => logPluginError(e, name, note && note(), resolve)));
+              result.errors.push(await new Promise((resolve) => logPluginError(e, name, note && note(), resolve)));
             }
           }
-        }))().then(done);
+        })().then(done);
       };
     }
     let refCount = 0;
@@ -947,7 +906,7 @@ function createChannel(streamIn) {
         }
       }
     };
-  });
+  };
   let buildServeData = (refs, options, request) => {
     let keys = {};
     let port = getFlag(options, keys, "port", mustBeInteger);
@@ -1004,7 +963,7 @@ function createChannel(streamIn) {
       let flags = [];
       try {
         pushLogFlags(flags, options, {}, isTTY, buildLogLevelDefault);
-      } catch (e2) {
+      } catch {
       }
       const message = extractErrorMessageV8(e, streamIn, details, note, pluginName);
       sendRequest(refs, { command: "error", flags, error: message }, () => {
@@ -1025,14 +984,15 @@ function createChannel(streamIn) {
           handleError(result.error, result.pluginName);
         } else {
           try {
-            buildOrServeContinue(__spreadProps(__spreadValues({}, args), {
+            buildOrServeContinue({
+              ...args,
               key,
               details,
               logPluginError,
               requestPlugins: result.requestPlugins,
               runOnEndCallbacks: result.runOnEndCallbacks,
               pluginRefs: result.pluginRefs
-            }));
+            });
           } catch (e) {
             handleError(e, "");
           }
@@ -1040,14 +1000,15 @@ function createChannel(streamIn) {
       }, (e) => handleError(e, ""));
     } else {
       try {
-        buildOrServeContinue(__spreadProps(__spreadValues({}, args), {
+        buildOrServeContinue({
+          ...args,
           key,
           details,
           logPluginError,
           requestPlugins: null,
           runOnEndCallbacks: (result, logPluginError2, done) => done(),
           pluginRefs: null
-        }));
+        });
       } catch (e) {
         handleError(e, "");
       }
@@ -1285,7 +1246,7 @@ function createChannel(streamIn) {
         let flags = [];
         try {
           pushLogFlags(flags, options, {}, isTTY, transformLogLevelDefault);
-        } catch (e2) {
+        } catch {
         }
         const error = extractErrorMessageV8(e, streamIn, details, void 0, "");
         sendRequest(refs, { command: "error", flags, error }, () => {
@@ -1369,7 +1330,7 @@ function extractCallerV8(e, streamIn, ident) {
         note = { text: e.message, location };
         return note;
       }
-    } catch (e2) {
+    } catch {
     }
   };
 }
@@ -1378,11 +1339,11 @@ function extractErrorMessageV8(e, streamIn, stash, note, pluginName) {
   let location = null;
   try {
     text = (e && e.message || e) + "";
-  } catch (e2) {
+  } catch {
   }
   try {
     location = parseStackLinesV8(streamIn, (e.stack + "").split("\n"), "");
-  } catch (e2) {
+  } catch {
   }
   return { pluginName, text, location, notes: note ? [note] : [], detail: stash ? stash.store(e) : -1 };
 }
@@ -1410,7 +1371,7 @@ function parseStackLinesV8(streamIn, lines, ident) {
           let contents;
           try {
             contents = streamIn.readFileSync(match[1], "utf8");
-          } catch (e) {
+          } catch {
             break;
           }
           let lineText = contents.split(/\r\n|\r|\n|\u2028|\u2029/)[+match[2] - 1] || "";
@@ -1540,7 +1501,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.12.5";
+var version = "0.12.6";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1559,7 +1520,7 @@ var stop = () => {
     stopService();
 };
 var initializeWasCalled = false;
-var initialize = (options) => __async(void 0, null, function* () {
+var initialize = async (options) => {
   options = validateInitializeOptions(options || {});
   if (options.wasmURL)
     throw new Error(`The "wasmURL" option only works in the browser`);
@@ -1567,27 +1528,25 @@ var initialize = (options) => __async(void 0, null, function* () {
     throw new Error(`The "worker" option only works in the browser`);
   if (initializeWasCalled)
     throw new Error('Cannot call "initialize" more than once');
-  yield ensureServiceIsRunning();
+  await ensureServiceIsRunning();
   initializeWasCalled = true;
-});
-function installFromNPM(name, subpath) {
-  return __async(this, null, function* () {
-    const { finalPath, finalDir } = getCachePath(name);
-    try {
-      yield Deno.stat(finalPath);
-      return finalPath;
-    } catch (e) {
-    }
-    const url = `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`;
-    const buffer = yield fetch(url).then((r) => r.arrayBuffer());
-    const executable = extractFileFromTarGzip(new Uint8Array(buffer), subpath);
-    yield Deno.mkdir(finalDir, {
-      recursive: true,
-      mode: 448
-    });
-    yield Deno.writeFile(finalPath, executable, { mode: 493 });
+};
+async function installFromNPM(name, subpath) {
+  const { finalPath, finalDir } = getCachePath(name);
+  try {
+    await Deno.stat(finalPath);
     return finalPath;
+  } catch (e) {
+  }
+  const url = `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`;
+  const buffer = await fetch(url).then((r) => r.arrayBuffer());
+  const executable = extractFileFromTarGzip(new Uint8Array(buffer), subpath);
+  await Deno.mkdir(finalDir, {
+    recursive: true,
+    mode: 448
   });
+  await Deno.writeFile(finalPath, executable, { mode: 493 });
+  return finalPath;
 }
 function getCachePath(name) {
   let baseDir;
@@ -1645,36 +1604,34 @@ function extractFileFromTarGzip(buffer, file) {
   }
   throw new Error(`Could not find ${JSON.stringify(file)} in archive`);
 }
-function install() {
-  return __async(this, null, function* () {
-    const overridePath = Deno.env.get("ESBUILD_BINARY_PATH");
-    if (overridePath)
-      return overridePath;
-    const platformKey = Deno.build.target;
-    const knownWindowsPackages = {
-      "x86_64-pc-windows-msvc": "esbuild-windows-64"
-    };
-    const knownUnixlikePackages = {
-      "aarch64-apple-darwin": "esbuild-darwin-arm64",
-      "x86_64-apple-darwin": "esbuild-darwin-64",
-      "x86_64-unknown-linux-gnu": "esbuild-linux-64"
-    };
-    if (platformKey in knownWindowsPackages) {
-      return yield installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
-    } else if (platformKey in knownUnixlikePackages) {
-      return yield installFromNPM(knownUnixlikePackages[platformKey], "bin/esbuild");
-    } else {
-      throw new Error(`Unsupported platform: ${platformKey}`);
-    }
-  });
+async function install() {
+  const overridePath = Deno.env.get("ESBUILD_BINARY_PATH");
+  if (overridePath)
+    return overridePath;
+  const platformKey = Deno.build.target;
+  const knownWindowsPackages = {
+    "x86_64-pc-windows-msvc": "esbuild-windows-64"
+  };
+  const knownUnixlikePackages = {
+    "aarch64-apple-darwin": "esbuild-darwin-arm64",
+    "x86_64-apple-darwin": "esbuild-darwin-64",
+    "x86_64-unknown-linux-gnu": "esbuild-linux-64"
+  };
+  if (platformKey in knownWindowsPackages) {
+    return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
+  } else if (platformKey in knownUnixlikePackages) {
+    return await installFromNPM(knownUnixlikePackages[platformKey], "bin/esbuild");
+  } else {
+    throw new Error(`Unsupported platform: ${platformKey}`);
+  }
 }
 var defaultWD = Deno.cwd();
 var longLivedService;
 var stopService;
 var ensureServiceIsRunning = () => {
   if (!longLivedService) {
-    longLivedService = (() => __async(void 0, null, function* () {
-      const binPath = yield install();
+    longLivedService = (async () => {
+      const binPath = await install();
       const isTTY = Deno.isatty(Deno.stderr.rid);
       const child = Deno.run({
         cmd: [binPath, `--service=${version}`],
@@ -1792,7 +1749,7 @@ var ensureServiceIsRunning = () => {
           }));
         }
       };
-    }))();
+    })();
   }
   return longLivedService;
 };
