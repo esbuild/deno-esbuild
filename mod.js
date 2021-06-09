@@ -650,8 +650,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.7") {
-        throw new Error(`Cannot start service: Host version "${"0.12.7"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.8") {
+        throw new Error(`Cannot start service: Host version "${"0.12.8"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -786,6 +786,7 @@ function createChannel(streamIn) {
                 let path = getFlag(result, keys, "path", mustBeString);
                 let namespace = getFlag(result, keys, "namespace", mustBeString);
                 let external = getFlag(result, keys, "external", mustBeBoolean);
+                let sideEffects = getFlag(result, keys, "sideEffects", mustBeBoolean);
                 let pluginData = getFlag(result, keys, "pluginData", canBeAnything);
                 let errors = getFlag(result, keys, "errors", mustBeArray);
                 let warnings = getFlag(result, keys, "warnings", mustBeArray);
@@ -801,6 +802,8 @@ function createChannel(streamIn) {
                   response.namespace = namespace;
                 if (external != null)
                   response.external = external;
+                if (sideEffects != null)
+                  response.sideEffects = sideEffects;
                 if (pluginData != null)
                   response.pluginData = stash.store(pluginData);
                 if (errors != null)
@@ -1501,7 +1504,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/compress@v0.3.3/mod.ts";
-var version = "0.12.7";
+var version = "0.12.8";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
