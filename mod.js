@@ -650,8 +650,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.22") {
-        throw new Error(`Cannot start service: Host version "${"0.12.22"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.23") {
+        throw new Error(`Cannot start service: Host version "${"0.12.23"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1173,6 +1173,8 @@ function createChannel(streamIn) {
       throw new Error(`Cannot enable "write" in the browser`);
     if (incremental && streamIn.isSync)
       throw new Error(`Cannot use "incremental" with a synchronous build`);
+    if (watch && streamIn.isSync)
+      throw new Error(`Cannot use "watch" with a synchronous build`);
     sendRequest(refs, request, (error, response) => {
       if (error)
         return callback(new Error(error), null);
@@ -1504,7 +1506,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.12.22";
+var version = "0.12.23";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
