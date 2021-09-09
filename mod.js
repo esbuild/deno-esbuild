@@ -650,8 +650,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.25") {
-        throw new Error(`Cannot start service: Host version "${"0.12.25"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.12.26") {
+        throw new Error(`Cannot start service: Host version "${"0.12.26"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1294,13 +1294,35 @@ function createChannel(streamIn) {
       callback(null, response.messages);
     });
   };
+  let analyzeMetafile = ({ callName, refs, metafile, options, callback }) => {
+    if (options === void 0)
+      options = {};
+    let keys = {};
+    let color = getFlag(options, keys, "color", mustBeBoolean);
+    let verbose = getFlag(options, keys, "verbose", mustBeBoolean);
+    checkForInvalidFlags(options, keys, `in ${callName}() call`);
+    let request = {
+      command: "analyze-metafile",
+      metafile
+    };
+    if (color !== void 0)
+      request.color = color;
+    if (verbose !== void 0)
+      request.verbose = verbose;
+    sendRequest(refs, request, (error, response) => {
+      if (error)
+        return callback(new Error(error), null);
+      callback(null, response.result);
+    });
+  };
   return {
     readFromStdout,
     afterClose,
     service: {
       buildOrServe,
       transform: transform2,
-      formatMessages: formatMessages2
+      formatMessages: formatMessages2,
+      analyzeMetafile
     }
   };
 }
@@ -1506,7 +1528,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.12.25";
+var version = "0.12.26";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
