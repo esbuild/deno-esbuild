@@ -235,7 +235,8 @@ function pushCommonFlags(flags, options, keys) {
   let minifyWhitespace = getFlag(options, keys, "minifyWhitespace", mustBeBoolean);
   let minifyIdentifiers = getFlag(options, keys, "minifyIdentifiers", mustBeBoolean);
   let charset = getFlag(options, keys, "charset", mustBeString);
-  let treeShaking = getFlag(options, keys, "treeShaking", mustBeStringOrBoolean);
+  let treeShaking = getFlag(options, keys, "treeShaking", mustBeBoolean);
+  let ignoreAnnotations = getFlag(options, keys, "ignoreAnnotations", mustBeBoolean);
   let jsx = getFlag(options, keys, "jsx", mustBeString);
   let jsxFactory = getFlag(options, keys, "jsxFactory", mustBeString);
   let jsxFragment = getFlag(options, keys, "jsxFragment", mustBeString);
@@ -268,8 +269,10 @@ function pushCommonFlags(flags, options, keys) {
     flags.push("--minify-identifiers");
   if (charset)
     flags.push(`--charset=${charset}`);
-  if (treeShaking !== void 0 && treeShaking !== true)
+  if (treeShaking !== void 0)
     flags.push(`--tree-shaking=${treeShaking}`);
+  if (ignoreAnnotations)
+    flags.push(`--ignore-annotations`);
   if (jsx)
     flags.push(`--jsx=${jsx}`);
   if (jsxFactory)
@@ -650,8 +653,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.12.29") {
-        throw new Error(`Cannot start service: Host version "${"0.12.29"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.13.0") {
+        throw new Error(`Cannot start service: Host version "${"0.13.0"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1528,7 +1531,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.12.29";
+var version = "0.13.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
