@@ -511,10 +511,10 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   return flags;
 }
 function createChannel(streamIn) {
-  let responseCallbacks = new Map();
-  let pluginCallbacks = new Map();
-  let watchCallbacks = new Map();
-  let serveCallbacks = new Map();
+  let responseCallbacks = /* @__PURE__ */ new Map();
+  let pluginCallbacks = /* @__PURE__ */ new Map();
+  let watchCallbacks = /* @__PURE__ */ new Map();
+  let serveCallbacks = /* @__PURE__ */ new Map();
   let nextServeID = 0;
   let isClosed = false;
   let nextRequestID = 0;
@@ -653,8 +653,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.13.15") {
-        throw new Error(`Cannot start service: Host version "${"0.13.15"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.0") {
+        throw new Error(`Cannot start service: Host version "${"0.14.0"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1330,7 +1330,7 @@ function createChannel(streamIn) {
   };
 }
 function createObjectStash() {
-  const map = new Map();
+  const map = /* @__PURE__ */ new Map();
   let nextID = 0;
   return {
     load(id) {
@@ -1531,7 +1531,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.13.15";
+var version = "0.14.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
