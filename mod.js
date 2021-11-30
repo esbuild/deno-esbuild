@@ -653,8 +653,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.0") {
-        throw new Error(`Cannot start service: Host version "${"0.14.0"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.1") {
+        throw new Error(`Cannot start service: Host version "${"0.14.1"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1434,7 +1434,7 @@ error: ${e.text}`;
     let { file, line, column } = e.location;
     let pluginText = e.pluginName ? `[plugin: ${e.pluginName}] ` : "";
     return `
-${file}:${line}:${column}: error: ${pluginText}${e.text}`;
+${file}:${line}:${column}: ERROR: ${pluginText}${e.text}`;
   }).join("");
   let error = new Error(`${text}${summary}`);
   error.errors = errors;
@@ -1531,7 +1531,7 @@ function convertOutputFiles({ path, contents }) {
 import {
   gunzip
 } from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.0";
+var version = "0.14.1";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
