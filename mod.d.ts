@@ -268,6 +268,21 @@ export interface PluginBuild {
     (OnResolveResult | null | undefined | Promise<OnResolveResult | null | undefined>)): void;
   onLoad(options: OnLoadOptions, callback: (args: OnLoadArgs) =>
     (OnLoadResult | null | undefined | Promise<OnLoadResult | null | undefined>)): void;
+
+  // This is a full copy of the esbuild library in case you need it
+  esbuild: {
+    serve: typeof serve,
+    build: typeof build,
+    buildSync: typeof buildSync,
+    transform: typeof transform,
+    transformSync: typeof transformSync,
+    formatMessages: typeof formatMessages,
+    formatMessagesSync: typeof formatMessagesSync,
+    analyzeMetafile: typeof analyzeMetafile,
+    analyzeMetafileSync: typeof analyzeMetafileSync,
+    initialize: typeof initialize,
+    version: typeof version,
+  };
 }
 
 export interface OnStartResult {
@@ -312,6 +327,7 @@ export interface OnResolveResult {
   external?: boolean;
   sideEffects?: boolean;
   namespace?: string;
+  suffix?: string;
   pluginData?: any;
 
   watchFiles?: string[];
@@ -326,6 +342,7 @@ export interface OnLoadOptions {
 export interface OnLoadArgs {
   path: string;
   namespace: string;
+  suffix: string;
   pluginData: any;
 }
 

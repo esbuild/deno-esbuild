@@ -1,4 +1,29 @@
 /// <reference types="./mod.d.ts" />
+var __defProp = Object.defineProperty;
+var __markAsModule = (target) => __defProp(target, "__esModule", { value: true });
+var __export = (target, all) => {
+  __markAsModule(target);
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// lib/deno/mod.ts
+var mod_exports = {};
+__export(mod_exports, {
+  analyzeMetafile: () => analyzeMetafile,
+  analyzeMetafileSync: () => analyzeMetafileSync,
+  build: () => build,
+  buildSync: () => buildSync,
+  formatMessages: () => formatMessages,
+  formatMessagesSync: () => formatMessagesSync,
+  initialize: () => initialize,
+  serve: () => serve,
+  stop: () => stop,
+  transform: () => transform,
+  transformSync: () => transformSync,
+  version: () => version
+});
+
 // lib/shared/stdio_protocol.ts
 function encodePacket(packet) {
   let visit = (value) => {
@@ -653,8 +678,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.2") {
-        throw new Error(`Cannot start service: Host version "${"0.14.2"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.3") {
+        throw new Error(`Cannot start service: Host version "${"0.14.3"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -700,17 +725,17 @@ function createChannel(streamIn) {
         let promise = setup({
           initialOptions,
           onStart(callback2) {
-            let registeredText = `This error came from the "onStart" callback registered here`;
+            let registeredText = `This error came from the "onStart" callback registered here:`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onStart");
             onStartCallbacks.push({ name, callback: callback2, note: registeredNote });
           },
           onEnd(callback2) {
-            let registeredText = `This error came from the "onEnd" callback registered here`;
+            let registeredText = `This error came from the "onEnd" callback registered here:`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onEnd");
             onEndCallbacks.push({ name, callback: callback2, note: registeredNote });
           },
           onResolve(options, callback2) {
-            let registeredText = `This error came from the "onResolve" callback registered here`;
+            let registeredText = `This error came from the "onResolve" callback registered here:`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onResolve");
             let keys2 = {};
             let filter = getFlag(options, keys2, "filter", mustBeRegExp);
@@ -723,7 +748,7 @@ function createChannel(streamIn) {
             plugin.onResolve.push({ id, filter: filter.source, namespace: namespace || "" });
           },
           onLoad(options, callback2) {
-            let registeredText = `This error came from the "onLoad" callback registered here`;
+            let registeredText = `This error came from the "onLoad" callback registered here:`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onLoad");
             let keys2 = {};
             let filter = getFlag(options, keys2, "filter", mustBeRegExp);
@@ -734,7 +759,8 @@ function createChannel(streamIn) {
             let id = nextCallbackID++;
             onLoadCallbacks[id] = { name, callback: callback2, note: registeredNote };
             plugin.onLoad.push({ id, filter: filter.source, namespace: namespace || "" });
-          }
+          },
+          esbuild: streamIn.esbuild
         });
         if (promise)
           await promise;
@@ -788,6 +814,7 @@ function createChannel(streamIn) {
                 let pluginName = getFlag(result, keys, "pluginName", mustBeString);
                 let path = getFlag(result, keys, "path", mustBeString);
                 let namespace = getFlag(result, keys, "namespace", mustBeString);
+                let suffix = getFlag(result, keys, "suffix", mustBeString);
                 let external = getFlag(result, keys, "external", mustBeBoolean);
                 let sideEffects = getFlag(result, keys, "sideEffects", mustBeBoolean);
                 let pluginData = getFlag(result, keys, "pluginData", canBeAnything);
@@ -803,6 +830,8 @@ function createChannel(streamIn) {
                   response.path = path;
                 if (namespace != null)
                   response.namespace = namespace;
+                if (suffix != null)
+                  response.suffix = suffix;
                 if (external != null)
                   response.external = external;
                 if (sideEffects != null)
@@ -833,6 +862,7 @@ function createChannel(streamIn) {
               let result = await callback2({
                 path: request.path,
                 namespace: request.namespace,
+                suffix: request.suffix,
                 pluginData: stash.load(request.pluginData)
               });
               if (result != null) {
@@ -1297,7 +1327,7 @@ function createChannel(streamIn) {
       callback(null, response.messages);
     });
   };
-  let analyzeMetafile = ({ callName, refs, metafile, options, callback }) => {
+  let analyzeMetafile2 = ({ callName, refs, metafile, options, callback }) => {
     if (options === void 0)
       options = {};
     let keys = {};
@@ -1325,7 +1355,7 @@ function createChannel(streamIn) {
       buildOrServe,
       transform: transform2,
       formatMessages: formatMessages2,
-      analyzeMetafile
+      analyzeMetafile: analyzeMetafile2
     }
   };
 }
@@ -1529,11 +1559,12 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.2";
+var version = "0.14.3";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
 var formatMessages = (messages, options) => ensureServiceIsRunning().then((service) => service.formatMessages(messages, options));
+var analyzeMetafile = (metafile, options) => ensureServiceIsRunning().then((service) => service.analyzeMetafile(metafile, options));
 var buildSync = () => {
   throw new Error(`The "buildSync" API does not work in Deno`);
 };
@@ -1542,6 +1573,9 @@ var transformSync = () => {
 };
 var formatMessagesSync = () => {
   throw new Error(`The "formatMessagesSync" API does not work in Deno`);
+};
+var analyzeMetafileSync = () => {
+  throw new Error(`The "analyzeMetafileSync" API does not work in Deno`);
 };
 var stop = () => {
   if (stopService)
@@ -1697,7 +1731,8 @@ var ensureServiceIsRunning = () => {
           startWriteFromQueueWorker();
         },
         isSync: false,
-        isBrowser: false
+        isBrowser: false,
+        esbuild: mod_exports
       });
       const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
       const readMoreStdout = () => child.stdout.read(stdoutBuffer).then((n) => {
@@ -1775,6 +1810,15 @@ var ensureServiceIsRunning = () => {
             options,
             callback: (err, res) => err ? reject(err) : resolve(res)
           }));
+        },
+        analyzeMetafile: (metafile, options) => {
+          return new Promise((resolve, reject) => service.analyzeMetafile({
+            callName: "analyzeMetafile",
+            refs: null,
+            metafile: typeof metafile === "string" ? metafile : JSON.stringify(metafile),
+            options,
+            callback: (err, res) => err ? reject(err) : resolve(res)
+          }));
         }
       };
     })();
@@ -1782,6 +1826,8 @@ var ensureServiceIsRunning = () => {
   return longLivedService;
 };
 export {
+  analyzeMetafile,
+  analyzeMetafileSync,
   build,
   buildSync,
   formatMessages,
