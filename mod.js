@@ -538,7 +538,6 @@ function createChannel(streamIn) {
   let pluginCallbacks = /* @__PURE__ */ new Map();
   let watchCallbacks = /* @__PURE__ */ new Map();
   let serveCallbacks = /* @__PURE__ */ new Map();
-  let nextServeID = 0;
   let isClosed = false;
   let nextRequestID = 0;
   let nextBuildKey = 0;
@@ -615,7 +614,7 @@ function createChannel(streamIn) {
           sendResponse(id, {});
           break;
         }
-        case "start": {
+        case "on-start": {
           let callback = pluginCallbacks.get(request.key);
           if (!callback)
             sendResponse(id, {});
@@ -623,7 +622,7 @@ function createChannel(streamIn) {
             sendResponse(id, await callback(request));
           break;
         }
-        case "resolve": {
+        case "on-resolve": {
           let callback = pluginCallbacks.get(request.key);
           if (!callback)
             sendResponse(id, {});
@@ -631,7 +630,7 @@ function createChannel(streamIn) {
             sendResponse(id, await callback(request));
           break;
         }
-        case "load": {
+        case "on-load": {
           let callback = pluginCallbacks.get(request.key);
           if (!callback)
             sendResponse(id, {});
@@ -640,21 +639,21 @@ function createChannel(streamIn) {
           break;
         }
         case "serve-request": {
-          let callbacks = serveCallbacks.get(request.serveID);
+          let callbacks = serveCallbacks.get(request.key);
           if (callbacks && callbacks.onRequest)
             callbacks.onRequest(request.args);
           sendResponse(id, {});
           break;
         }
         case "serve-wait": {
-          let callbacks = serveCallbacks.get(request.serveID);
+          let callbacks = serveCallbacks.get(request.key);
           if (callbacks)
             callbacks.onWait(request.error);
           sendResponse(id, {});
           break;
         }
         case "watch-rebuild": {
-          let callback = watchCallbacks.get(request.watchID);
+          let callback = watchCallbacks.get(request.key);
           try {
             if (callback)
               callback(null, request.args);
@@ -676,8 +675,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.7") {
-        throw new Error(`Cannot start service: Host version "${"0.14.7"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.8") {
+        throw new Error(`Cannot start service: Host version "${"0.14.8"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -693,7 +692,7 @@ function createChannel(streamIn) {
         callback(null, packet.value);
     }
   };
-  let handlePlugins = async (initialOptions, plugins, buildKey, stash) => {
+  let handlePlugins = async (initialOptions, plugins, buildKey, stash, refs) => {
     let onStartCallbacks = [];
     let onEndCallbacks = [];
     let onResolveCallbacks = {};
@@ -701,12 +700,13 @@ function createChannel(streamIn) {
     let nextCallbackID = 0;
     let i = 0;
     let requestPlugins = [];
+    let isSetupDone = false;
     plugins = [...plugins];
     for (let item of plugins) {
       let keys = {};
       if (typeof item !== "object")
         throw new Error(`Plugin at index ${i} must be an object`);
-      let name = getFlag(item, keys, "name", mustBeString);
+      const name = getFlag(item, keys, "name", mustBeString);
       if (typeof name !== "string" || name === "")
         throw new Error(`Plugin at index ${i} is missing a name`);
       try {
@@ -720,8 +720,55 @@ function createChannel(streamIn) {
           onLoad: []
         };
         i++;
+        let resolve = (path, options = {}) => {
+          if (!isSetupDone)
+            throw new Error('Cannot call "resolve" before plugin setup has completed');
+          if (typeof path !== "string")
+            throw new Error(`The path to resolve must be a string`);
+          let keys2 = Object.create(null);
+          let importer = getFlag(options, keys2, "importer", mustBeString);
+          let namespace = getFlag(options, keys2, "namespace", mustBeString);
+          let resolveDir = getFlag(options, keys2, "resolveDir", mustBeString);
+          let kind = getFlag(options, keys2, "kind", mustBeString);
+          let pluginData = getFlag(options, keys2, "pluginData", canBeAnything);
+          checkForInvalidFlags(options, keys2, "in resolve() call");
+          return new Promise((resolve2, reject) => {
+            const request = {
+              command: "resolve",
+              path,
+              key: buildKey,
+              pluginName: name
+            };
+            if (importer != null)
+              request.importer = importer;
+            if (namespace != null)
+              request.namespace = namespace;
+            if (resolveDir != null)
+              request.resolveDir = resolveDir;
+            if (kind != null)
+              request.kind = kind;
+            if (pluginData != null)
+              request.pluginData = stash.store(pluginData);
+            sendRequest(refs, request, (error, response) => {
+              if (error !== null)
+                reject(new Error(error));
+              else
+                resolve2({
+                  errors: replaceDetailsInMessages(response.errors, stash),
+                  warnings: replaceDetailsInMessages(response.warnings, stash),
+                  path: response.path,
+                  external: response.external,
+                  sideEffects: response.sideEffects,
+                  namespace: response.namespace,
+                  suffix: response.suffix,
+                  pluginData: stash.load(response.pluginData)
+                });
+            });
+          });
+        };
         let promise = setup({
           initialOptions,
+          resolve,
           onStart(callback2) {
             let registeredText = `This error came from the "onStart" callback registered here:`;
             let registeredNote = extractCallerV8(new Error(registeredText), streamIn, "onStart");
@@ -769,7 +816,7 @@ function createChannel(streamIn) {
     }
     const callback = async (request) => {
       switch (request.command) {
-        case "start": {
+        case "on-start": {
           let response = { errors: [], warnings: [] };
           await Promise.all(onStartCallbacks.map(async ({ name, callback: callback2, note }) => {
             try {
@@ -792,7 +839,7 @@ function createChannel(streamIn) {
           }));
           return response;
         }
-        case "resolve": {
+        case "on-resolve": {
           let response = {}, name = "", callback2, note;
           for (let id of request.ids) {
             try {
@@ -852,7 +899,7 @@ function createChannel(streamIn) {
           }
           return response;
         }
-        case "load": {
+        case "on-load": {
           let response = {}, name = "", callback2, note;
           for (let id of request.ids) {
             try {
@@ -924,6 +971,7 @@ function createChannel(streamIn) {
         })().then(done);
       };
     }
+    isSetupDone = true;
     let refCount = 0;
     return {
       ok: true,
@@ -941,24 +989,23 @@ function createChannel(streamIn) {
       }
     };
   };
-  let buildServeData = (refs, options, request) => {
+  let buildServeData = (refs, options, request, key) => {
     let keys = {};
     let port = getFlag(options, keys, "port", mustBeInteger);
     let host = getFlag(options, keys, "host", mustBeString);
     let servedir = getFlag(options, keys, "servedir", mustBeString);
     let onRequest = getFlag(options, keys, "onRequest", mustBeFunction);
-    let serveID = nextServeID++;
     let onWait;
     let wait = new Promise((resolve, reject) => {
       onWait = (error) => {
-        serveCallbacks.delete(serveID);
+        serveCallbacks.delete(key);
         if (error !== null)
           reject(new Error(error));
         else
           resolve();
       };
     });
-    request.serve = { serveID };
+    request.serve = {};
     checkForInvalidFlags(options, keys, `in serve() call`);
     if (port !== void 0)
       request.serve.port = port;
@@ -966,14 +1013,14 @@ function createChannel(streamIn) {
       request.serve.host = host;
     if (servedir !== void 0)
       request.serve.servedir = servedir;
-    serveCallbacks.set(serveID, {
+    serveCallbacks.set(key, {
       onRequest,
       onWait
     });
     return {
       wait,
       stop() {
-        sendRequest(refs, { command: "serve-stop", serveID }, () => {
+        sendRequest(refs, { command: "serve-stop", key }, () => {
         });
       }
     };
@@ -1013,7 +1060,7 @@ function createChannel(streamIn) {
     if (plugins && plugins.length > 0) {
       if (streamIn.isSync)
         return handleError(new Error("Cannot use plugins in synchronous API calls"), "");
-      handlePlugins(options, plugins, key, details).then((result) => {
+      handlePlugins(options, plugins, key, details, refs).then((result) => {
         if (!result.ok) {
           handleError(result.error, result.pluginName);
         } else {
@@ -1103,7 +1150,7 @@ function createChannel(streamIn) {
     };
     if (requestPlugins)
       request.plugins = requestPlugins;
-    let serve2 = serveOptions && buildServeData(refs, serveOptions, request);
+    let serve2 = serveOptions && buildServeData(refs, serveOptions, request, key);
     let rebuild;
     let stop2;
     let copyResponseToResult = (response, result) => {
@@ -1124,13 +1171,13 @@ function createChannel(streamIn) {
         if (result.errors.length > 0) {
           return callback2(failureErrorWithLog("Build failed", result.errors, result.warnings), null);
         }
-        if (response.rebuildID !== void 0) {
+        if (response.rebuild) {
           if (!rebuild) {
             let isDisposed = false;
             rebuild = () => new Promise((resolve, reject) => {
               if (isDisposed || isClosed)
                 throw new Error("Cannot rebuild");
-              sendRequest(refs, { command: "rebuild", rebuildID: response.rebuildID }, (error2, response2) => {
+              sendRequest(refs, { command: "rebuild", key }, (error2, response2) => {
                 if (error2) {
                   const message = { pluginName: "", text: error2, location: null, notes: [], detail: void 0 };
                   return callback2(failureErrorWithLog("Build failed", [message], []), null);
@@ -1148,14 +1195,14 @@ function createChannel(streamIn) {
               if (isDisposed)
                 return;
               isDisposed = true;
-              sendRequest(refs, { command: "rebuild-dispose", rebuildID: response.rebuildID }, () => {
+              sendRequest(refs, { command: "rebuild-dispose", key }, () => {
               });
               refs.unref();
             };
           }
           result.rebuild = rebuild;
         }
-        if (response.watchID !== void 0) {
+        if (response.watch) {
           if (!stop2) {
             let isStopped = false;
             refs.ref();
@@ -1163,13 +1210,13 @@ function createChannel(streamIn) {
               if (isStopped)
                 return;
               isStopped = true;
-              watchCallbacks.delete(response.watchID);
-              sendRequest(refs, { command: "watch-stop", watchID: response.watchID }, () => {
+              watchCallbacks.delete(key);
+              sendRequest(refs, { command: "watch-stop", key }, () => {
               });
               refs.unref();
             };
             if (watch) {
-              watchCallbacks.set(response.watchID, (serviceStopError, watchResponse) => {
+              watchCallbacks.set(key, (serviceStopError, watchResponse) => {
                 if (serviceStopError) {
                   if (watch.onRebuild)
                     watch.onRebuild(serviceStopError, null);
@@ -1557,7 +1604,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.7";
+var version = "0.14.8";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
