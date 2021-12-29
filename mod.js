@@ -675,8 +675,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.8") {
-        throw new Error(`Cannot start service: Host version "${"0.14.8"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.9") {
+        throw new Error(`Cannot start service: Host version "${"0.14.9"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -726,6 +726,7 @@ function createChannel(streamIn) {
           if (typeof path !== "string")
             throw new Error(`The path to resolve must be a string`);
           let keys2 = Object.create(null);
+          let pluginName = getFlag(options, keys2, "pluginName", mustBeString);
           let importer = getFlag(options, keys2, "importer", mustBeString);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
           let resolveDir = getFlag(options, keys2, "resolveDir", mustBeString);
@@ -739,6 +740,8 @@ function createChannel(streamIn) {
               key: buildKey,
               pluginName: name
             };
+            if (pluginName != null)
+              request.pluginName = pluginName;
             if (importer != null)
               request.importer = importer;
             if (namespace != null)
@@ -1604,7 +1607,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.8";
+var version = "0.14.9";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
