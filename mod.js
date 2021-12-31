@@ -226,7 +226,7 @@ function checkForInvalidFlags(object, keys, where) {
   }
 }
 function validateInitializeOptions(options) {
-  let keys = Object.create(null);
+  let keys = /* @__PURE__ */ Object.create(null);
   let wasmURL = getFlag(options, keys, "wasmURL", mustBeString);
   let worker = getFlag(options, keys, "worker", mustBeBoolean);
   checkForInvalidFlags(options, keys, "in startService() call");
@@ -257,6 +257,7 @@ function pushCommonFlags(flags, options, keys) {
   let minifySyntax = getFlag(options, keys, "minifySyntax", mustBeBoolean);
   let minifyWhitespace = getFlag(options, keys, "minifyWhitespace", mustBeBoolean);
   let minifyIdentifiers = getFlag(options, keys, "minifyIdentifiers", mustBeBoolean);
+  let drop = getFlag(options, keys, "drop", mustBeArray);
   let charset = getFlag(options, keys, "charset", mustBeString);
   let treeShaking = getFlag(options, keys, "treeShaking", mustBeBoolean);
   let ignoreAnnotations = getFlag(options, keys, "ignoreAnnotations", mustBeBoolean);
@@ -296,6 +297,9 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--tree-shaking=${treeShaking}`);
   if (ignoreAnnotations)
     flags.push(`--ignore-annotations`);
+  if (drop)
+    for (let what of drop)
+      flags.push(`--drop:${what}`);
   if (jsx)
     flags.push(`--jsx=${jsx}`);
   if (jsxFactory)
@@ -318,7 +322,7 @@ function pushCommonFlags(flags, options, keys) {
 function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDefault) {
   let flags = [];
   let entries = [];
-  let keys = Object.create(null);
+  let keys = /* @__PURE__ */ Object.create(null);
   let stdinContents = null;
   let stdinResolveDir = null;
   let watchMode = null;
@@ -368,7 +372,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     if (typeof watch === "boolean") {
       watchMode = {};
     } else {
-      let watchKeys = Object.create(null);
+      let watchKeys = /* @__PURE__ */ Object.create(null);
       let onRebuild = getFlag(watch, watchKeys, "onRebuild", mustBeFunction);
       checkForInvalidFlags(watch, watchKeys, `on "watch" in ${callName}() call`);
       watchMode = { onRebuild };
@@ -474,7 +478,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     }
   }
   if (stdin) {
-    let stdinKeys = Object.create(null);
+    let stdinKeys = /* @__PURE__ */ Object.create(null);
     let contents = getFlag(stdin, stdinKeys, "contents", mustBeString);
     let resolveDir = getFlag(stdin, stdinKeys, "resolveDir", mustBeString);
     let sourcefile = getFlag(stdin, stdinKeys, "sourcefile", mustBeString);
@@ -509,7 +513,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
 }
 function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   let flags = [];
-  let keys = Object.create(null);
+  let keys = /* @__PURE__ */ Object.create(null);
   pushLogFlags(flags, options, keys, isTTY, logLevelDefault);
   pushCommonFlags(flags, options, keys);
   let sourcemap = getFlag(options, keys, "sourcemap", mustBeStringOrBoolean);
@@ -675,8 +679,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.9") {
-        throw new Error(`Cannot start service: Host version "${"0.14.9"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.10") {
+        throw new Error(`Cannot start service: Host version "${"0.14.10"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -725,7 +729,7 @@ function createChannel(streamIn) {
             throw new Error('Cannot call "resolve" before plugin setup has completed');
           if (typeof path !== "string")
             throw new Error(`The path to resolve must be a string`);
-          let keys2 = Object.create(null);
+          let keys2 = /* @__PURE__ */ Object.create(null);
           let pluginName = getFlag(options, keys2, "pluginName", mustBeString);
           let importer = getFlag(options, keys2, "importer", mustBeString);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
@@ -1607,7 +1611,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.9";
+var version = "0.14.10";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
