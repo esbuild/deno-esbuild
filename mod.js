@@ -108,9 +108,9 @@ function decodePacket(bytes) {
 var ByteBuffer = class {
   constructor(buf = new Uint8Array(1024)) {
     this.buf = buf;
-    this.len = 0;
-    this.ptr = 0;
   }
+  len = 0;
+  ptr = 0;
   _write(delta) {
     if (this.len + delta > this.buf.length) {
       let clone = new Uint8Array((this.len + delta) * 2);
@@ -679,8 +679,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.10") {
-        throw new Error(`Cannot start service: Host version "${"0.14.10"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.11") {
+        throw new Error(`Cannot start service: Host version "${"0.14.11"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1611,7 +1611,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.10";
+var version = "0.14.11";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1877,6 +1877,17 @@ var ensureServiceIsRunning = () => {
   }
   return longLivedService;
 };
+if (import.meta.main) {
+  Deno.run({
+    cmd: [await install()].concat(Deno.args),
+    cwd: defaultWD,
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit"
+  }).status().then(({ code }) => {
+    Deno.exit(code);
+  });
+}
 export {
   analyzeMetafile,
   analyzeMetafileSync,
