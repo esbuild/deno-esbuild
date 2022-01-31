@@ -253,6 +253,8 @@ function pushCommonFlags(flags, options, keys) {
   let target = getFlag(options, keys, "target", mustBeStringOrArray);
   let format = getFlag(options, keys, "format", mustBeString);
   let globalName = getFlag(options, keys, "globalName", mustBeString);
+  let mangleProps = getFlag(options, keys, "mangleProps", mustBeRegExp);
+  let reserveProps = getFlag(options, keys, "reserveProps", mustBeRegExp);
   let minify = getFlag(options, keys, "minify", mustBeBoolean);
   let minifySyntax = getFlag(options, keys, "minifySyntax", mustBeBoolean);
   let minifyWhitespace = getFlag(options, keys, "minifyWhitespace", mustBeBoolean);
@@ -300,6 +302,10 @@ function pushCommonFlags(flags, options, keys) {
   if (drop)
     for (let what of drop)
       flags.push(`--drop:${what}`);
+  if (mangleProps)
+    flags.push(`--mangle-props=${mangleProps.source}`);
+  if (reserveProps)
+    flags.push(`--reserve-props=${reserveProps.source}`);
   if (jsx)
     flags.push(`--jsx=${jsx}`);
   if (jsxFactory)
@@ -679,8 +685,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.14") {
-        throw new Error(`Cannot start service: Host version "${"0.14.14"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.15") {
+        throw new Error(`Cannot start service: Host version "${"0.14.15"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1611,7 +1617,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.14";
+var version = "0.14.15";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
