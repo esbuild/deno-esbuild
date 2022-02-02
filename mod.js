@@ -235,6 +235,21 @@ function validateInitializeOptions(options) {
     worker
   };
 }
+function validateMangleCache(mangleCache) {
+  let validated;
+  if (mangleCache !== void 0) {
+    validated = /* @__PURE__ */ Object.create(null);
+    for (let key of Object.keys(mangleCache)) {
+      let value = mangleCache[key];
+      if (typeof value === "string" || value === false) {
+        validated[key] = value;
+      } else {
+        throw new Error(`Expected ${JSON.stringify(key)} in mangle cache to map to either a string or false`);
+      }
+    }
+  }
+  return validated;
+}
 function pushLogFlags(flags, options, keys, isTTY, logLevelDefault) {
   let color = getFlag(options, keys, "color", mustBeBoolean);
   let logLevel = getFlag(options, keys, "logLevel", mustBeString);
@@ -365,6 +380,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let write = getFlag(options, keys, "write", mustBeBoolean) ?? writeDefault;
   let allowOverwrite = getFlag(options, keys, "allowOverwrite", mustBeBoolean);
   let incremental = getFlag(options, keys, "incremental", mustBeBoolean) === true;
+  let mangleCache = getFlag(options, keys, "mangleCache", mustBeObject);
   keys.plugins = true;
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
   if (sourcemap)
@@ -514,7 +530,8 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     absWorkingDir,
     incremental,
     nodePaths,
-    watch: watchMode
+    watch: watchMode,
+    mangleCache: validateMangleCache(mangleCache)
   };
 }
 function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
@@ -528,6 +545,7 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   let loader = getFlag(options, keys, "loader", mustBeString);
   let banner = getFlag(options, keys, "banner", mustBeString);
   let footer = getFlag(options, keys, "footer", mustBeString);
+  let mangleCache = getFlag(options, keys, "mangleCache", mustBeObject);
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
   if (sourcemap)
     flags.push(`--sourcemap=${sourcemap === true ? "external" : sourcemap}`);
@@ -541,7 +559,10 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
     flags.push(`--banner=${banner}`);
   if (footer)
     flags.push(`--footer=${footer}`);
-  return flags;
+  return {
+    flags,
+    mangleCache: validateMangleCache(mangleCache)
+  };
 }
 function createChannel(streamIn) {
   let responseCallbacks = /* @__PURE__ */ new Map();
@@ -685,8 +706,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.17") {
-        throw new Error(`Cannot start service: Host version "${"0.14.17"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.18") {
+        throw new Error(`Cannot start service: Host version "${"0.14.18"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1147,7 +1168,8 @@ function createChannel(streamIn) {
       absWorkingDir,
       incremental,
       nodePaths,
-      watch
+      watch,
+      mangleCache
     } = flagsForBuildOptions(callName, options, isTTY, buildLogLevelDefault, writeDefault);
     let request = {
       command: "build",
@@ -1163,6 +1185,8 @@ function createChannel(streamIn) {
     };
     if (requestPlugins)
       request.plugins = requestPlugins;
+    if (mangleCache)
+      request.mangleCache = mangleCache;
     let serve2 = serveOptions && buildServeData(refs, serveOptions, request, key);
     let rebuild;
     let stop2;
@@ -1171,6 +1195,8 @@ function createChannel(streamIn) {
         result.outputFiles = response.outputFiles.map(convertOutputFiles);
       if (response.metafile)
         result.metafile = JSON.parse(response.metafile);
+      if (response.mangleCache)
+        result.mangleCache = response.mangleCache;
       if (response.writeToStdout !== void 0)
         console.log(decodeUTF8(response.writeToStdout).replace(/\n$/, ""));
     };
@@ -1298,20 +1324,32 @@ function createChannel(streamIn) {
       try {
         if (typeof input !== "string")
           throw new Error('The input to "transform" must be a string');
-        let flags = flagsForTransformOptions(callName, options, isTTY, transformLogLevelDefault);
+        let {
+          flags,
+          mangleCache
+        } = flagsForTransformOptions(callName, options, isTTY, transformLogLevelDefault);
         let request = {
           command: "transform",
           flags,
           inputFS: inputPath !== null,
           input: inputPath !== null ? inputPath : input
         };
+        if (mangleCache)
+          request.mangleCache = mangleCache;
         sendRequest(refs, request, (error, response) => {
           if (error)
             return callback(new Error(error), null);
           let errors = replaceDetailsInMessages(response.errors, details);
           let warnings = replaceDetailsInMessages(response.warnings, details);
           let outstanding = 1;
-          let next = () => --outstanding === 0 && callback(null, { warnings, code: response.code, map: response.map });
+          let next = () => {
+            if (--outstanding === 0) {
+              let result = { warnings, code: response.code, map: response.map };
+              if (response.mangleCache)
+                result.mangleCache = response?.mangleCache;
+              callback(null, result);
+            }
+          };
           if (errors.length > 0)
             return callback(failureErrorWithLog("Transform failed", errors, warnings), null);
           if (response.codeFS) {
@@ -1617,7 +1655,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.17";
+var version = "0.14.18";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
