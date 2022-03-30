@@ -572,7 +572,7 @@ function createChannel(streamIn) {
   let pluginCallbacks = /* @__PURE__ */ new Map();
   let watchCallbacks = /* @__PURE__ */ new Map();
   let serveCallbacks = /* @__PURE__ */ new Map();
-  let isClosed = false;
+  let closeData = null;
   let nextRequestID = 0;
   let nextBuildKey = 0;
   let stdout = new Uint8Array(16 * 1024);
@@ -601,19 +601,20 @@ function createChannel(streamIn) {
       stdoutUsed -= offset;
     }
   };
-  let afterClose = () => {
-    isClosed = true;
+  let afterClose = (error) => {
+    closeData = { reason: error ? ": " + (error.message || error) : "" };
+    const text = "The service was stopped" + closeData.reason;
     for (let callback of responseCallbacks.values()) {
-      callback("The service was stopped", null);
+      callback(text, null);
     }
     responseCallbacks.clear();
     for (let callbacks of serveCallbacks.values()) {
-      callbacks.onWait("The service was stopped");
+      callbacks.onWait(text);
     }
     serveCallbacks.clear();
     for (let callback of watchCallbacks.values()) {
       try {
-        callback(new Error("The service was stopped"), null);
+        callback(new Error(text), null);
       } catch (e) {
         console.error(e);
       }
@@ -621,8 +622,8 @@ function createChannel(streamIn) {
     watchCallbacks.clear();
   };
   let sendRequest = (refs, value, callback) => {
-    if (isClosed)
-      return callback("The service is no longer running", null);
+    if (closeData)
+      return callback("The service is no longer running" + closeData.reason, null);
     let id = nextRequestID++;
     responseCallbacks.set(id, (error, response) => {
       try {
@@ -637,8 +638,8 @@ function createChannel(streamIn) {
     streamIn.writeToStdin(encodePacket({ id, isRequest: true, value }));
   };
   let sendResponse = (id, value) => {
-    if (isClosed)
-      throw new Error("The service is no longer running");
+    if (closeData)
+      throw new Error("The service is no longer running" + closeData.reason);
     streamIn.writeToStdin(encodePacket({ id, isRequest: false, value }));
   };
   let handleRequest = async (id, request) => {
@@ -709,8 +710,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.28") {
-        throw new Error(`Cannot start service: Host version "${"0.14.28"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.29") {
+        throw new Error(`Cannot start service: Host version "${"0.14.29"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1217,7 +1218,7 @@ function createChannel(streamIn) {
           if (!rebuild) {
             let isDisposed = false;
             rebuild = () => new Promise((resolve, reject) => {
-              if (isDisposed || isClosed)
+              if (isDisposed || closeData)
                 throw new Error("Cannot rebuild");
               sendRequest(refs, { command: "rebuild", key }, (error2, response2) => {
                 if (error2) {
@@ -1658,7 +1659,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.28";
+var version = "0.14.29";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1836,14 +1837,14 @@ var ensureServiceIsRunning = () => {
       const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
       const readMoreStdout = () => child.stdout.read(stdoutBuffer).then((n) => {
         if (n === null) {
-          afterClose();
+          afterClose(null);
         } else {
           readFromStdout(stdoutBuffer.subarray(0, n));
           readMoreStdout();
         }
       }).catch((e) => {
         if (e instanceof Deno.errors.Interrupted || e instanceof Deno.errors.BadResource) {
-          afterClose();
+          afterClose(e);
         } else {
           throw e;
         }
