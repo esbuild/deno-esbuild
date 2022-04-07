@@ -713,8 +713,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.32") {
-        throw new Error(`Cannot start service: Host version "${"0.14.32"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.33") {
+        throw new Error(`Cannot start service: Host version "${"0.14.33"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1662,7 +1662,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.32";
+var version = "0.14.33";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1779,6 +1779,7 @@ async function install() {
   };
   const knownUnixlikePackages = {
     "aarch64-apple-darwin": "esbuild-darwin-arm64",
+    "aarch64-unknown-linux-gnu": "esbuild-linux-arm64",
     "x86_64-apple-darwin": "esbuild-darwin-64",
     "x86_64-unknown-linux-gnu": "esbuild-linux-64"
   };
