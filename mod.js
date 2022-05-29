@@ -286,6 +286,7 @@ function pushCommonFlags(flags, options, keys) {
   let jsxFactory = getFlag(options, keys, "jsxFactory", mustBeString);
   let jsxFragment = getFlag(options, keys, "jsxFragment", mustBeString);
   let define = getFlag(options, keys, "define", mustBeObject);
+  let logOverride = getFlag(options, keys, "logOverride", mustBeObject);
   let pure = getFlag(options, keys, "pure", mustBeArray);
   let keepNames = getFlag(options, keys, "keepNames", mustBeBoolean);
   if (legalComments)
@@ -338,6 +339,13 @@ function pushCommonFlags(flags, options, keys) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid define: ${key}`);
       flags.push(`--define:${key}=${define[key]}`);
+    }
+  }
+  if (logOverride) {
+    for (let key in logOverride) {
+      if (key.indexOf("=") >= 0)
+        throw new Error(`Invalid log override: ${key}`);
+      flags.push(`--log-override:${key}=${logOverride[key]}`);
     }
   }
   if (pure)
@@ -713,8 +721,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.41") {
-        throw new Error(`Cannot start service: Host version "${"0.14.41"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.42") {
+        throw new Error(`Cannot start service: Host version "${"0.14.42"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1662,7 +1670,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.41";
+var version = "0.14.42";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
