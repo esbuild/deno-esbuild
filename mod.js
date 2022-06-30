@@ -1,4 +1,3 @@
-"use strict";
 /// <reference types="./mod.d.ts" />
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
@@ -730,8 +729,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.47") {
-        throw new Error(`Cannot start service: Host version "${"0.14.47"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.48") {
+        throw new Error(`Cannot start service: Host version "${"0.14.48"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1182,7 +1181,7 @@ function createChannel(streamIn) {
           callerRefs.unref();
       }
     };
-    let writeDefault = !streamIn.isBrowser;
+    let writeDefault = !streamIn.isWriteUnavailable;
     let {
       entries,
       flags,
@@ -1310,8 +1309,8 @@ function createChannel(streamIn) {
         callback2(null, result);
       });
     };
-    if (write && streamIn.isBrowser)
-      throw new Error(`Cannot enable "write" in the browser`);
+    if (write && streamIn.isWriteUnavailable)
+      throw new Error(`The "write" option is unavailable in this environment`);
     if (incremental && streamIn.isSync)
       throw new Error(`Cannot use "incremental" with a synchronous build`);
     if (watch && streamIn.isSync)
@@ -1681,7 +1680,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.47";
+var version = "0.14.48";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1802,7 +1801,8 @@ async function install() {
     "aarch64-apple-darwin": "esbuild-darwin-arm64",
     "aarch64-unknown-linux-gnu": "esbuild-linux-arm64",
     "x86_64-apple-darwin": "esbuild-darwin-64",
-    "x86_64-unknown-linux-gnu": "esbuild-linux-64"
+    "x86_64-unknown-linux-gnu": "esbuild-linux-64",
+    "x86_64-unknown-freebsd": "esbuild-freebsd-64"
   };
   if (platformKey in knownWindowsPackages) {
     return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
@@ -1856,7 +1856,7 @@ var ensureServiceIsRunning = () => {
           startWriteFromQueueWorker();
         },
         isSync: false,
-        isBrowser: false,
+        isWriteUnavailable: false,
         esbuild: mod_exports
       });
       const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
