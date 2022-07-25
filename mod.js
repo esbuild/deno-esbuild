@@ -290,6 +290,7 @@ function pushCommonFlags(flags, options, keys) {
   let supported = getFlag(options, keys, "supported", mustBeObject);
   let pure = getFlag(options, keys, "pure", mustBeArray);
   let keepNames = getFlag(options, keys, "keepNames", mustBeBoolean);
+  let platform = getFlag(options, keys, "platform", mustBeString);
   if (legalComments)
     flags.push(`--legal-comments=${legalComments}`);
   if (sourceRoot !== void 0)
@@ -306,6 +307,8 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--format=${format}`);
   if (globalName)
     flags.push(`--global-name=${globalName}`);
+  if (platform)
+    flags.push(`--platform=${platform}`);
   if (minify)
     flags.push("--minify");
   if (minifySyntax)
@@ -380,7 +383,6 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let outfile = getFlag(options, keys, "outfile", mustBeString);
   let outdir = getFlag(options, keys, "outdir", mustBeString);
   let outbase = getFlag(options, keys, "outbase", mustBeString);
-  let platform = getFlag(options, keys, "platform", mustBeString);
   let tsconfig = getFlag(options, keys, "tsconfig", mustBeString);
   let resolveExtensions = getFlag(options, keys, "resolveExtensions", mustBeArray);
   let nodePathsInput = getFlag(options, keys, "nodePaths", mustBeArray);
@@ -434,8 +436,6 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     flags.push(`--outdir=${outdir}`);
   if (outbase)
     flags.push(`--outbase=${outbase}`);
-  if (platform)
-    flags.push(`--platform=${platform}`);
   if (tsconfig)
     flags.push(`--tsconfig=${tsconfig}`);
   if (resolveExtensions) {
@@ -729,8 +729,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.49") {
-        throw new Error(`Cannot start service: Host version "${"0.14.49"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.50") {
+        throw new Error(`Cannot start service: Host version "${"0.14.50"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1117,25 +1117,28 @@ function createChannel(streamIn) {
     if (plugins && plugins.length > 0) {
       if (streamIn.isSync)
         return handleError(new Error("Cannot use plugins in synchronous API calls"), "");
-      handlePlugins(options, plugins, key, details, refs).then((result) => {
-        if (!result.ok) {
-          handleError(result.error, result.pluginName);
-        } else {
-          try {
-            buildOrServeContinue({
-              ...args,
-              key,
-              details,
-              logPluginError,
-              requestPlugins: result.requestPlugins,
-              runOnEndCallbacks: result.runOnEndCallbacks,
-              pluginRefs: result.pluginRefs
-            });
-          } catch (e) {
-            handleError(e, "");
+      handlePlugins(options, plugins, key, details, refs).then(
+        (result) => {
+          if (!result.ok) {
+            handleError(result.error, result.pluginName);
+          } else {
+            try {
+              buildOrServeContinue({
+                ...args,
+                key,
+                details,
+                logPluginError,
+                requestPlugins: result.requestPlugins,
+                runOnEndCallbacks: result.runOnEndCallbacks,
+                pluginRefs: result.pluginRefs
+              });
+            } catch (e) {
+              handleError(e, "");
+            }
           }
-        }
-      }, (e) => handleError(e, ""));
+        },
+        (e) => handleError(e, "")
+      );
     } else {
       try {
         buildOrServeContinue({
@@ -1239,18 +1242,22 @@ function createChannel(streamIn) {
             rebuild = () => new Promise((resolve, reject) => {
               if (isDisposed || closeData)
                 throw new Error("Cannot rebuild");
-              sendRequest(refs, { command: "rebuild", key }, (error2, response2) => {
-                if (error2) {
-                  const message = { id: "", pluginName: "", text: error2, location: null, notes: [], detail: void 0 };
-                  return callback2(failureErrorWithLog("Build failed", [message], []), null);
+              sendRequest(
+                refs,
+                { command: "rebuild", key },
+                (error2, response2) => {
+                  if (error2) {
+                    const message = { id: "", pluginName: "", text: error2, location: null, notes: [], detail: void 0 };
+                    return callback2(failureErrorWithLog("Build failed", [message], []), null);
+                  }
+                  buildResponseToResult(response2, (error3, result3) => {
+                    if (error3)
+                      reject(error3);
+                    else
+                      resolve(result3);
+                  });
                 }
-                buildResponseToResult(response2, (error3, result3) => {
-                  if (error3)
-                    reject(error3);
-                  else
-                    resolve(result3);
-                });
-              });
+              );
             });
             refs.ref();
             rebuild.dispose = () => {
@@ -1680,7 +1687,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.49";
+var version = "0.14.50";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1911,17 +1918,26 @@ var ensureServiceIsRunning = () => {
             isTTY,
             fs: {
               readFile(tempFile, callback) {
-                Deno.readFile(tempFile).then((bytes) => {
-                  let text = new TextDecoder().decode(bytes);
-                  try {
-                    Deno.remove(tempFile);
-                  } catch (e) {
-                  }
-                  callback(null, text);
-                }, (err) => callback(err, null));
+                Deno.readFile(tempFile).then(
+                  (bytes) => {
+                    let text = new TextDecoder().decode(bytes);
+                    try {
+                      Deno.remove(tempFile);
+                    } catch (e) {
+                    }
+                    callback(null, text);
+                  },
+                  (err) => callback(err, null)
+                );
               },
               writeFile(contents, callback) {
-                Deno.makeTempFile().then((tempFile) => Deno.writeFile(tempFile, new TextEncoder().encode(contents)).then(() => callback(tempFile), () => callback(null)), () => callback(null));
+                Deno.makeTempFile().then(
+                  (tempFile) => Deno.writeFile(tempFile, new TextEncoder().encode(contents)).then(
+                    () => callback(tempFile),
+                    () => callback(null)
+                  ),
+                  () => callback(null)
+                );
               }
             },
             callback: (err, res) => err ? reject(err) : resolve(res)
