@@ -529,7 +529,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   }
   if (stdin) {
     let stdinKeys = /* @__PURE__ */ Object.create(null);
-    let contents = getFlag(stdin, stdinKeys, "contents", mustBeString);
+    let contents = getFlag(stdin, stdinKeys, "contents", mustBeStringOrUint8Array);
     let resolveDir = getFlag(stdin, stdinKeys, "resolveDir", mustBeString);
     let sourcefile = getFlag(stdin, stdinKeys, "sourcefile", mustBeString);
     let loader2 = getFlag(stdin, stdinKeys, "loader", mustBeString);
@@ -540,7 +540,10 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
       flags.push(`--loader=${loader2}`);
     if (resolveDir)
       stdinResolveDir = resolveDir + "";
-    stdinContents = contents ? contents + "" : "";
+    if (typeof contents === "string")
+      stdinContents = encodeUTF8(contents);
+    else if (contents instanceof Uint8Array)
+      stdinContents = contents;
   }
   let nodePaths = [];
   if (nodePathsInput) {
@@ -735,8 +738,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.14.51") {
-        throw new Error(`Cannot start service: Host version "${"0.14.51"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.14.52") {
+        throw new Error(`Cannot start service: Host version "${"0.14.52"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1358,8 +1361,8 @@ function createChannel(streamIn) {
     const details = createObjectStash();
     let start = (inputPath) => {
       try {
-        if (typeof input !== "string")
-          throw new Error('The input to "transform" must be a string');
+        if (typeof input !== "string" && !(input instanceof Uint8Array))
+          throw new Error('The input to "transform" must be a string or a Uint8Array');
         let {
           flags,
           mangleCache
@@ -1368,7 +1371,7 @@ function createChannel(streamIn) {
           command: "transform",
           flags,
           inputFS: inputPath !== null,
-          input: inputPath !== null ? inputPath : input
+          input: inputPath !== null ? encodeUTF8(inputPath) : typeof input === "string" ? encodeUTF8(input) : input
         };
         if (mangleCache)
           request.mangleCache = mangleCache;
@@ -1425,7 +1428,7 @@ function createChannel(streamIn) {
         });
       }
     };
-    if (typeof input === "string" && input.length > 1024 * 1024) {
+    if ((typeof input === "string" || input instanceof Uint8Array) && input.length > 1024 * 1024) {
       let next = start;
       start = () => fs.writeFile(input, next);
     }
@@ -1684,8 +1687,11 @@ function convertOutputFiles({ path, contents }) {
     path,
     contents,
     get text() {
-      if (text === null)
-        text = decodeUTF8(contents);
+      const binary = this.contents;
+      if (text === null || binary !== contents) {
+        contents = binary;
+        text = decodeUTF8(binary);
+      }
       return text;
     }
   };
@@ -1693,7 +1699,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.14.51";
+var version = "0.14.52";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1938,7 +1944,7 @@ var ensureServiceIsRunning = () => {
               },
               writeFile(contents, callback) {
                 Deno.makeTempFile().then(
-                  (tempFile) => Deno.writeFile(tempFile, new TextEncoder().encode(contents)).then(
+                  (tempFile) => Deno.writeFile(tempFile, typeof contents === "string" ? new TextEncoder().encode(contents) : contents).then(
                     () => callback(tempFile),
                     () => callback(null)
                   ),
