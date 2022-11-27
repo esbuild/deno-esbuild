@@ -400,6 +400,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let mainFields = getFlag(options, keys, "mainFields", mustBeArray);
   let conditions = getFlag(options, keys, "conditions", mustBeArray);
   let external = getFlag(options, keys, "external", mustBeArray);
+  let alias = getFlag(options, keys, "alias", mustBeObject);
   let loader = getFlag(options, keys, "loader", mustBeObject);
   let outExtension = getFlag(options, keys, "outExtension", mustBeObject);
   let publicPath = getFlag(options, keys, "publicPath", mustBeString);
@@ -490,6 +491,13 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (external)
     for (let name of external)
       flags.push(`--external:${name}`);
+  if (alias) {
+    for (let old in alias) {
+      if (old.indexOf("=") >= 0)
+        throw new Error(`Invalid package name in alias: ${old}`);
+      flags.push(`--alias:${old}=${alias[old]}`);
+    }
+  }
   if (banner) {
     for (let type in banner) {
       if (type.indexOf("=") >= 0)
@@ -689,8 +697,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.15.15") {
-        throw new Error(`Cannot start service: Host version "${"0.15.15"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.15.16") {
+        throw new Error(`Cannot start service: Host version "${"0.15.16"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1641,7 +1649,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.15.15";
+var version = "0.15.16";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
