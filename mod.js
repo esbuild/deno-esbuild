@@ -211,6 +211,7 @@ var mustBeStringOrBoolean = (value) => typeof value === "string" || typeof value
 var mustBeStringOrObject = (value) => typeof value === "string" || typeof value === "object" && value !== null && !Array.isArray(value) ? null : "a string or an object";
 var mustBeStringOrArray = (value) => typeof value === "string" || Array.isArray(value) ? null : "a string or an array";
 var mustBeStringOrUint8Array = (value) => typeof value === "string" || value instanceof Uint8Array ? null : "a string or a Uint8Array";
+var mustBeStringOrURL = (value) => typeof value === "string" || value instanceof URL ? null : "a string or a URL";
 function getFlag(object, keys, key, mustBeFn) {
   let value = object[key];
   keys[key + ""] = true;
@@ -230,7 +231,7 @@ function checkForInvalidFlags(object, keys, where) {
 }
 function validateInitializeOptions(options) {
   let keys = /* @__PURE__ */ Object.create(null);
-  let wasmURL = getFlag(options, keys, "wasmURL", mustBeString);
+  let wasmURL = getFlag(options, keys, "wasmURL", mustBeStringOrURL);
   let wasmModule = getFlag(options, keys, "wasmModule", mustBeWebAssemblyModule);
   let worker = getFlag(options, keys, "worker", mustBeBoolean);
   checkForInvalidFlags(options, keys, "in initialize() call");
@@ -697,8 +698,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.15.16") {
-        throw new Error(`Cannot start service: Host version "${"0.15.16"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.15.17") {
+        throw new Error(`Cannot start service: Host version "${"0.15.17"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
       }
       return;
     }
@@ -1649,7 +1650,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.15.16";
+var version = "0.15.17";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
