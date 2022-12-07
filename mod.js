@@ -156,26 +156,30 @@ var ByteBuffer = class {
 };
 var encodeUTF8;
 var decodeUTF8;
+var encodeInvariant;
 if (typeof TextEncoder !== "undefined" && typeof TextDecoder !== "undefined") {
   let encoder = new TextEncoder();
   let decoder = new TextDecoder();
   encodeUTF8 = (text) => encoder.encode(text);
   decodeUTF8 = (bytes) => decoder.decode(bytes);
+  encodeInvariant = 'new TextEncoder().encode("")';
 } else if (typeof Buffer !== "undefined") {
-  encodeUTF8 = (text) => {
-    let buffer = Buffer.from(text);
-    if (!(buffer instanceof Uint8Array)) {
-      buffer = new Uint8Array(buffer);
-    }
-    return buffer;
-  };
+  encodeUTF8 = (text) => Buffer.from(text);
   decodeUTF8 = (bytes) => {
     let { buffer, byteOffset, byteLength } = bytes;
     return Buffer.from(buffer, byteOffset, byteLength).toString();
   };
+  encodeInvariant = 'Buffer.from("")';
 } else {
   throw new Error("No UTF-8 codec found");
 }
+if (!(encodeUTF8("") instanceof Uint8Array))
+  throw new Error(`Invariant violation: "${encodeInvariant} instanceof Uint8Array" is incorrectly false
+
+This indicates that your JavaScript environment is broken. You cannot use
+esbuild in this environment because esbuild relies on this invariant. This
+is not a problem with esbuild. You need to fix your environment instead.
+`);
 function readUInt32LE(buffer, offset) {
   return buffer[offset++] | buffer[offset++] << 8 | buffer[offset++] << 16 | buffer[offset++] << 24;
 }
@@ -187,10 +191,11 @@ function writeUInt32LE(buffer, value, offset) {
 }
 
 // lib/shared/common.ts
+var quote = JSON.stringify;
 var buildLogLevelDefault = "warning";
 var transformLogLevelDefault = "silent";
 function validateTarget(target) {
-  target += "";
+  validateStringValue(target, "target");
   if (target.indexOf(",") >= 0)
     throw new Error(`Invalid target: ${target}`);
   return target;
@@ -219,13 +224,13 @@ function getFlag(object, keys, key, mustBeFn) {
     return void 0;
   let mustBe = mustBeFn(value);
   if (mustBe !== null)
-    throw new Error(`"${key}" must be ${mustBe}`);
+    throw new Error(`${quote(key)} must be ${mustBe}`);
   return value;
 }
 function checkForInvalidFlags(object, keys, where) {
   for (let key in object) {
     if (!(key in keys)) {
-      throw new Error(`Invalid option ${where}: "${key}"`);
+      throw new Error(`Invalid option ${where}: ${quote(key)}`);
     }
   }
 }
@@ -245,12 +250,12 @@ function validateMangleCache(mangleCache) {
   let validated;
   if (mangleCache !== void 0) {
     validated = /* @__PURE__ */ Object.create(null);
-    for (let key of Object.keys(mangleCache)) {
+    for (let key in mangleCache) {
       let value = mangleCache[key];
       if (typeof value === "string" || value === false) {
         validated[key] = value;
       } else {
-        throw new Error(`Expected ${JSON.stringify(key)} in mangle cache to map to either a string or false`);
+        throw new Error(`Expected ${quote(key)} in mangle cache to map to either a string or false`);
       }
     }
   }
@@ -266,6 +271,12 @@ function pushLogFlags(flags, options, keys, isTTY, logLevelDefault) {
     flags.push(`--color=true`);
   flags.push(`--log-level=${logLevel || logLevelDefault}`);
   flags.push(`--log-limit=${logLimit || 0}`);
+}
+function validateStringValue(value, what, key) {
+  if (typeof value !== "string") {
+    throw new Error(`Expected value for ${what}${key !== void 0 ? " " + quote(key) : ""} to be a string, got ${typeof value} instead`);
+  }
+  return value;
 }
 function pushCommonFlags(flags, options, keys) {
   let legalComments = getFlag(options, keys, "legalComments", mustBeString);
@@ -331,7 +342,7 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--ignore-annotations`);
   if (drop)
     for (let what of drop)
-      flags.push(`--drop:${what}`);
+      flags.push(`--drop:${validateStringValue(what, "drop")}`);
   if (mangleProps)
     flags.push(`--mangle-props=${mangleProps.source}`);
   if (reserveProps)
@@ -354,26 +365,29 @@ function pushCommonFlags(flags, options, keys) {
     for (let key in define) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid define: ${key}`);
-      flags.push(`--define:${key}=${define[key]}`);
+      flags.push(`--define:${key}=${validateStringValue(define[key], "define", key)}`);
     }
   }
   if (logOverride) {
     for (let key in logOverride) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid log override: ${key}`);
-      flags.push(`--log-override:${key}=${logOverride[key]}`);
+      flags.push(`--log-override:${key}=${validateStringValue(logOverride[key], "log override", key)}`);
     }
   }
   if (supported) {
     for (let key in supported) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid supported: ${key}`);
-      flags.push(`--supported:${key}=${supported[key]}`);
+      const value = supported[key];
+      if (typeof value !== "boolean")
+        throw new Error(`Expected value for supported ${quote(key)} to be a boolean, got ${typeof value} instead`);
+      flags.push(`--supported:${key}=${value}`);
     }
   }
   if (pure)
     for (let fn of pure)
-      flags.push(`--pure:${fn}`);
+      flags.push(`--pure:${validateStringValue(fn, "pure")}`);
   if (keepNames)
     flags.push(`--keep-names`);
 }
@@ -454,7 +468,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (resolveExtensions) {
     let values = [];
     for (let value of resolveExtensions) {
-      value += "";
+      validateStringValue(value, "resolve extension");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid resolve extension: ${value}`);
       values.push(value);
@@ -472,7 +486,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (mainFields) {
     let values = [];
     for (let value of mainFields) {
-      value += "";
+      validateStringValue(value, "main field");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid main field: ${value}`);
       values.push(value);
@@ -482,7 +496,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (conditions) {
     let values = [];
     for (let value of conditions) {
-      value += "";
+      validateStringValue(value, "condition");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid condition: ${value}`);
       values.push(value);
@@ -491,53 +505,53 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   }
   if (external)
     for (let name of external)
-      flags.push(`--external:${name}`);
+      flags.push(`--external:${validateStringValue(name, "external")}`);
   if (alias) {
     for (let old in alias) {
       if (old.indexOf("=") >= 0)
         throw new Error(`Invalid package name in alias: ${old}`);
-      flags.push(`--alias:${old}=${alias[old]}`);
+      flags.push(`--alias:${old}=${validateStringValue(alias[old], "alias", old)}`);
     }
   }
   if (banner) {
     for (let type in banner) {
       if (type.indexOf("=") >= 0)
         throw new Error(`Invalid banner file type: ${type}`);
-      flags.push(`--banner:${type}=${banner[type]}`);
+      flags.push(`--banner:${type}=${validateStringValue(banner[type], "banner", type)}`);
     }
   }
   if (footer) {
     for (let type in footer) {
       if (type.indexOf("=") >= 0)
         throw new Error(`Invalid footer file type: ${type}`);
-      flags.push(`--footer:${type}=${footer[type]}`);
+      flags.push(`--footer:${type}=${validateStringValue(footer[type], "footer", type)}`);
     }
   }
   if (inject)
     for (let path of inject)
-      flags.push(`--inject:${path}`);
+      flags.push(`--inject:${validateStringValue(path, "inject")}`);
   if (loader) {
     for (let ext in loader) {
       if (ext.indexOf("=") >= 0)
         throw new Error(`Invalid loader extension: ${ext}`);
-      flags.push(`--loader:${ext}=${loader[ext]}`);
+      flags.push(`--loader:${ext}=${validateStringValue(loader[ext], "loader", ext)}`);
     }
   }
   if (outExtension) {
     for (let ext in outExtension) {
       if (ext.indexOf("=") >= 0)
         throw new Error(`Invalid out extension: ${ext}`);
-      flags.push(`--out-extension:${ext}=${outExtension[ext]}`);
+      flags.push(`--out-extension:${ext}=${validateStringValue(outExtension[ext], "out extension", ext)}`);
     }
   }
   if (entryPoints) {
     if (Array.isArray(entryPoints)) {
       for (let entryPoint of entryPoints) {
-        entries.push(["", entryPoint + ""]);
+        entries.push(["", validateStringValue(entryPoint, "entry point")]);
       }
     } else {
-      for (let [key, value] of Object.entries(entryPoints)) {
-        entries.push([key + "", value + ""]);
+      for (let key in entryPoints) {
+        entries.push([key, validateStringValue(entryPoints[key], "entry point", key)]);
       }
     }
   }
@@ -553,7 +567,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     if (loader2)
       flags.push(`--loader=${loader2}`);
     if (resolveDir)
-      stdinResolveDir = resolveDir + "";
+      stdinResolveDir = resolveDir;
     if (typeof contents === "string")
       stdinContents = encodeUTF8(contents);
     else if (contents instanceof Uint8Array)
@@ -698,8 +712,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.15.18") {
-        throw new Error(`Cannot start service: Host version "${"0.15.18"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.16.0") {
+        throw new Error(`Cannot start service: Host version "${"0.16.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1181,7 +1195,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
       let setup = getFlag(item, keys, "setup", mustBeFunction);
       if (typeof setup !== "function")
         throw new Error(`Plugin is missing a setup function`);
-      checkForInvalidFlags(item, keys, `on plugin ${JSON.stringify(name)}`);
+      checkForInvalidFlags(item, keys, `on plugin ${quote(name)}`);
       let plugin = {
         name,
         onResolve: [],
@@ -1218,6 +1232,8 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
             request.resolveDir = resolveDir;
           if (kind != null)
             request.kind = kind;
+          else
+            throw new Error(`Must specify "kind" when calling "resolve"`);
           if (pluginData != null)
             request.pluginData = details.store(pluginData);
           sendRequest(refs, request, (error, response) => {
@@ -1256,7 +1272,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let keys2 = {};
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
-          checkForInvalidFlags(options, keys2, `in onResolve() call for plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(options, keys2, `in onResolve() call for plugin ${quote(name)}`);
           if (filter == null)
             throw new Error(`onResolve() call is missing a filter`);
           let id = nextCallbackID++;
@@ -1269,7 +1285,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let keys2 = {};
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
-          checkForInvalidFlags(options, keys2, `in onLoad() call for plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(options, keys2, `in onLoad() call for plugin ${quote(name)}`);
           if (filter == null)
             throw new Error(`onLoad() call is missing a filter`);
           let id = nextCallbackID++;
@@ -1292,11 +1308,11 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         let result = await callback();
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onStart() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onStart() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let errors = getFlag(result, keys, "errors", mustBeArray);
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${quote(name)}`);
           if (errors != null)
             response.errors.push(...sanitizeMessages(errors, "errors", details, name));
           if (warnings != null)
@@ -1323,7 +1339,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         });
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onResolve() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onResolve() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let path = getFlag(result, keys, "path", mustBeString);
@@ -1336,7 +1352,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           let watchFiles = getFlag(result, keys, "watchFiles", mustBeArray);
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onResolve() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onResolve() callback in plugin ${quote(name)}`);
           response.id = id2;
           if (pluginName != null)
             response.pluginName = pluginName;
@@ -1382,7 +1398,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         });
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onLoad() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onLoad() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let contents = getFlag(result, keys, "contents", mustBeStringOrUint8Array);
@@ -1393,7 +1409,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           let watchFiles = getFlag(result, keys, "watchFiles", mustBeArray);
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onLoad() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onLoad() callback in plugin ${quote(name)}`);
           response.id = id2;
           if (pluginName != null)
             response.pluginName = pluginName;
@@ -1627,7 +1643,7 @@ function sanitizeStringArray(values, property) {
   const result = [];
   for (const value of values) {
     if (typeof value !== "string")
-      throw new Error(`${JSON.stringify(property)} must be an array of strings`);
+      throw new Error(`${quote(property)} must be an array of strings`);
     result.push(value);
   }
   return result;
@@ -1650,7 +1666,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.15.18";
+var version = "0.16.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1765,14 +1781,14 @@ async function install() {
     return overridePath;
   const platformKey = Deno.build.target;
   const knownWindowsPackages = {
-    "x86_64-pc-windows-msvc": "esbuild-windows-64"
+    "x86_64-pc-windows-msvc": "@esbuild/win32-x64"
   };
   const knownUnixlikePackages = {
-    "aarch64-apple-darwin": "esbuild-darwin-arm64",
-    "aarch64-unknown-linux-gnu": "esbuild-linux-arm64",
-    "x86_64-apple-darwin": "esbuild-darwin-64",
-    "x86_64-unknown-linux-gnu": "esbuild-linux-64",
-    "x86_64-unknown-freebsd": "esbuild-freebsd-64"
+    "aarch64-apple-darwin": "@esbuild/darwin-arm64",
+    "aarch64-unknown-linux-gnu": "@esbuild/linux-arm64",
+    "x86_64-apple-darwin": "@esbuild/darwin-x64",
+    "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
+    "x86_64-unknown-freebsd": "@esbuild/freebsd-x64"
   };
   if (platformKey in knownWindowsPackages) {
     return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");

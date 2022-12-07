@@ -156,26 +156,30 @@ var ByteBuffer = class {
 };
 var encodeUTF8;
 var decodeUTF8;
+var encodeInvariant;
 if (typeof TextEncoder !== "undefined" && typeof TextDecoder !== "undefined") {
   let encoder = new TextEncoder();
   let decoder = new TextDecoder();
   encodeUTF8 = (text) => encoder.encode(text);
   decodeUTF8 = (bytes) => decoder.decode(bytes);
+  encodeInvariant = 'new TextEncoder().encode("")';
 } else if (typeof Buffer !== "undefined") {
-  encodeUTF8 = (text) => {
-    let buffer = Buffer.from(text);
-    if (!(buffer instanceof Uint8Array)) {
-      buffer = new Uint8Array(buffer);
-    }
-    return buffer;
-  };
+  encodeUTF8 = (text) => Buffer.from(text);
   decodeUTF8 = (bytes) => {
     let { buffer, byteOffset, byteLength } = bytes;
     return Buffer.from(buffer, byteOffset, byteLength).toString();
   };
+  encodeInvariant = 'Buffer.from("")';
 } else {
   throw new Error("No UTF-8 codec found");
 }
+if (!(encodeUTF8("") instanceof Uint8Array))
+  throw new Error(`Invariant violation: "${encodeInvariant} instanceof Uint8Array" is incorrectly false
+
+This indicates that your JavaScript environment is broken. You cannot use
+esbuild in this environment because esbuild relies on this invariant. This
+is not a problem with esbuild. You need to fix your environment instead.
+`);
 function readUInt32LE(buffer, offset) {
   return buffer[offset++] | buffer[offset++] << 8 | buffer[offset++] << 16 | buffer[offset++] << 24;
 }
@@ -187,10 +191,11 @@ function writeUInt32LE(buffer, value, offset) {
 }
 
 // lib/shared/common.ts
+var quote = JSON.stringify;
 var buildLogLevelDefault = "warning";
 var transformLogLevelDefault = "silent";
 function validateTarget(target) {
-  target += "";
+  validateStringValue(target, "target");
   if (target.indexOf(",") >= 0)
     throw new Error(`Invalid target: ${target}`);
   return target;
@@ -219,13 +224,13 @@ function getFlag(object, keys, key, mustBeFn) {
     return void 0;
   let mustBe = mustBeFn(value);
   if (mustBe !== null)
-    throw new Error(`"${key}" must be ${mustBe}`);
+    throw new Error(`${quote(key)} must be ${mustBe}`);
   return value;
 }
 function checkForInvalidFlags(object, keys, where) {
   for (let key in object) {
     if (!(key in keys)) {
-      throw new Error(`Invalid option ${where}: "${key}"`);
+      throw new Error(`Invalid option ${where}: ${quote(key)}`);
     }
   }
 }
@@ -245,12 +250,12 @@ function validateMangleCache(mangleCache) {
   let validated;
   if (mangleCache !== void 0) {
     validated = /* @__PURE__ */ Object.create(null);
-    for (let key of Object.keys(mangleCache)) {
+    for (let key in mangleCache) {
       let value = mangleCache[key];
       if (typeof value === "string" || value === false) {
         validated[key] = value;
       } else {
-        throw new Error(`Expected ${JSON.stringify(key)} in mangle cache to map to either a string or false`);
+        throw new Error(`Expected ${quote(key)} in mangle cache to map to either a string or false`);
       }
     }
   }
@@ -266,6 +271,12 @@ function pushLogFlags(flags, options, keys, isTTY, logLevelDefault) {
     flags.push(`--color=true`);
   flags.push(`--log-level=${logLevel || logLevelDefault}`);
   flags.push(`--log-limit=${logLimit || 0}`);
+}
+function validateStringValue(value, what, key) {
+  if (typeof value !== "string") {
+    throw new Error(`Expected value for ${what}${key !== void 0 ? " " + quote(key) : ""} to be a string, got ${typeof value} instead`);
+  }
+  return value;
 }
 function pushCommonFlags(flags, options, keys) {
   let legalComments = getFlag(options, keys, "legalComments", mustBeString);
@@ -331,7 +342,7 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--ignore-annotations`);
   if (drop)
     for (let what of drop)
-      flags.push(`--drop:${what}`);
+      flags.push(`--drop:${validateStringValue(what, "drop")}`);
   if (mangleProps)
     flags.push(`--mangle-props=${mangleProps.source}`);
   if (reserveProps)
@@ -354,26 +365,29 @@ function pushCommonFlags(flags, options, keys) {
     for (let key in define) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid define: ${key}`);
-      flags.push(`--define:${key}=${define[key]}`);
+      flags.push(`--define:${key}=${validateStringValue(define[key], "define", key)}`);
     }
   }
   if (logOverride) {
     for (let key in logOverride) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid log override: ${key}`);
-      flags.push(`--log-override:${key}=${logOverride[key]}`);
+      flags.push(`--log-override:${key}=${validateStringValue(logOverride[key], "log override", key)}`);
     }
   }
   if (supported) {
     for (let key in supported) {
       if (key.indexOf("=") >= 0)
         throw new Error(`Invalid supported: ${key}`);
-      flags.push(`--supported:${key}=${supported[key]}`);
+      const value = supported[key];
+      if (typeof value !== "boolean")
+        throw new Error(`Expected value for supported ${quote(key)} to be a boolean, got ${typeof value} instead`);
+      flags.push(`--supported:${key}=${value}`);
     }
   }
   if (pure)
     for (let fn of pure)
-      flags.push(`--pure:${fn}`);
+      flags.push(`--pure:${validateStringValue(fn, "pure")}`);
   if (keepNames)
     flags.push(`--keep-names`);
 }
@@ -454,7 +468,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (resolveExtensions) {
     let values = [];
     for (let value of resolveExtensions) {
-      value += "";
+      validateStringValue(value, "resolve extension");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid resolve extension: ${value}`);
       values.push(value);
@@ -472,7 +486,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (mainFields) {
     let values = [];
     for (let value of mainFields) {
-      value += "";
+      validateStringValue(value, "main field");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid main field: ${value}`);
       values.push(value);
@@ -482,7 +496,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   if (conditions) {
     let values = [];
     for (let value of conditions) {
-      value += "";
+      validateStringValue(value, "condition");
       if (value.indexOf(",") >= 0)
         throw new Error(`Invalid condition: ${value}`);
       values.push(value);
@@ -491,53 +505,53 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   }
   if (external)
     for (let name of external)
-      flags.push(`--external:${name}`);
+      flags.push(`--external:${validateStringValue(name, "external")}`);
   if (alias) {
     for (let old in alias) {
       if (old.indexOf("=") >= 0)
         throw new Error(`Invalid package name in alias: ${old}`);
-      flags.push(`--alias:${old}=${alias[old]}`);
+      flags.push(`--alias:${old}=${validateStringValue(alias[old], "alias", old)}`);
     }
   }
   if (banner) {
     for (let type in banner) {
       if (type.indexOf("=") >= 0)
         throw new Error(`Invalid banner file type: ${type}`);
-      flags.push(`--banner:${type}=${banner[type]}`);
+      flags.push(`--banner:${type}=${validateStringValue(banner[type], "banner", type)}`);
     }
   }
   if (footer) {
     for (let type in footer) {
       if (type.indexOf("=") >= 0)
         throw new Error(`Invalid footer file type: ${type}`);
-      flags.push(`--footer:${type}=${footer[type]}`);
+      flags.push(`--footer:${type}=${validateStringValue(footer[type], "footer", type)}`);
     }
   }
   if (inject)
     for (let path of inject)
-      flags.push(`--inject:${path}`);
+      flags.push(`--inject:${validateStringValue(path, "inject")}`);
   if (loader) {
     for (let ext in loader) {
       if (ext.indexOf("=") >= 0)
         throw new Error(`Invalid loader extension: ${ext}`);
-      flags.push(`--loader:${ext}=${loader[ext]}`);
+      flags.push(`--loader:${ext}=${validateStringValue(loader[ext], "loader", ext)}`);
     }
   }
   if (outExtension) {
     for (let ext in outExtension) {
       if (ext.indexOf("=") >= 0)
         throw new Error(`Invalid out extension: ${ext}`);
-      flags.push(`--out-extension:${ext}=${outExtension[ext]}`);
+      flags.push(`--out-extension:${ext}=${validateStringValue(outExtension[ext], "out extension", ext)}`);
     }
   }
   if (entryPoints) {
     if (Array.isArray(entryPoints)) {
       for (let entryPoint of entryPoints) {
-        entries.push(["", entryPoint + ""]);
+        entries.push(["", validateStringValue(entryPoint, "entry point")]);
       }
     } else {
-      for (let [key, value] of Object.entries(entryPoints)) {
-        entries.push([key + "", value + ""]);
+      for (let key in entryPoints) {
+        entries.push([key, validateStringValue(entryPoints[key], "entry point", key)]);
       }
     }
   }
@@ -553,7 +567,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     if (loader2)
       flags.push(`--loader=${loader2}`);
     if (resolveDir)
-      stdinResolveDir = resolveDir + "";
+      stdinResolveDir = resolveDir;
     if (typeof contents === "string")
       stdinContents = encodeUTF8(contents);
     else if (contents instanceof Uint8Array)
@@ -698,8 +712,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.15.18") {
-        throw new Error(`Cannot start service: Host version "${"0.15.18"}" does not match binary version ${JSON.stringify(binaryVersion)}`);
+      if (binaryVersion !== "0.16.0") {
+        throw new Error(`Cannot start service: Host version "${"0.16.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1181,7 +1195,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
       let setup = getFlag(item, keys, "setup", mustBeFunction);
       if (typeof setup !== "function")
         throw new Error(`Plugin is missing a setup function`);
-      checkForInvalidFlags(item, keys, `on plugin ${JSON.stringify(name)}`);
+      checkForInvalidFlags(item, keys, `on plugin ${quote(name)}`);
       let plugin = {
         name,
         onResolve: [],
@@ -1218,6 +1232,8 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
             request.resolveDir = resolveDir;
           if (kind != null)
             request.kind = kind;
+          else
+            throw new Error(`Must specify "kind" when calling "resolve"`);
           if (pluginData != null)
             request.pluginData = details.store(pluginData);
           sendRequest(refs, request, (error, response) => {
@@ -1256,7 +1272,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let keys2 = {};
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
-          checkForInvalidFlags(options, keys2, `in onResolve() call for plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(options, keys2, `in onResolve() call for plugin ${quote(name)}`);
           if (filter == null)
             throw new Error(`onResolve() call is missing a filter`);
           let id = nextCallbackID++;
@@ -1269,7 +1285,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let keys2 = {};
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
-          checkForInvalidFlags(options, keys2, `in onLoad() call for plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(options, keys2, `in onLoad() call for plugin ${quote(name)}`);
           if (filter == null)
             throw new Error(`onLoad() call is missing a filter`);
           let id = nextCallbackID++;
@@ -1292,11 +1308,11 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         let result = await callback();
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onStart() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onStart() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let errors = getFlag(result, keys, "errors", mustBeArray);
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${quote(name)}`);
           if (errors != null)
             response.errors.push(...sanitizeMessages(errors, "errors", details, name));
           if (warnings != null)
@@ -1323,7 +1339,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         });
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onResolve() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onResolve() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let path = getFlag(result, keys, "path", mustBeString);
@@ -1336,7 +1352,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           let watchFiles = getFlag(result, keys, "watchFiles", mustBeArray);
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onResolve() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onResolve() callback in plugin ${quote(name)}`);
           response.id = id2;
           if (pluginName != null)
             response.pluginName = pluginName;
@@ -1382,7 +1398,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         });
         if (result != null) {
           if (typeof result !== "object")
-            throw new Error(`Expected onLoad() callback in plugin ${JSON.stringify(name)} to return an object`);
+            throw new Error(`Expected onLoad() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let contents = getFlag(result, keys, "contents", mustBeStringOrUint8Array);
@@ -1393,7 +1409,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           let watchFiles = getFlag(result, keys, "watchFiles", mustBeArray);
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
-          checkForInvalidFlags(result, keys, `from onLoad() callback in plugin ${JSON.stringify(name)}`);
+          checkForInvalidFlags(result, keys, `from onLoad() callback in plugin ${quote(name)}`);
           response.id = id2;
           if (pluginName != null)
             response.pluginName = pluginName;
@@ -1627,7 +1643,7 @@ function sanitizeStringArray(values, property) {
   const result = [];
   for (const value of values) {
     if (typeof value !== "string")
-      throw new Error(`${JSON.stringify(property)} must be an array of strings`);
+      throw new Error(`${quote(property)} must be an array of strings`);
     result.push(value);
   }
   return result;
@@ -1649,7 +1665,7 @@ function convertOutputFiles({ path, contents }) {
 }
 
 // lib/deno/wasm.ts
-var version = "0.15.18";
+var version = "0.16.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = () => {
   throw new Error(`The "serve" API does not work in Deno via WebAssembly`);
@@ -1694,7 +1710,7 @@ var initialize = async (options) => {
 var startRunningService = async (wasmURL, wasmModule, useWorker) => {
   let worker;
   if (useWorker) {
-    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`\n`);return i!=-1&&(console.log(c.substr(0,i)),c=c.substr(i+1)),s.length},write(n,s,i,a,h,u){if(i!==0||a!==s.length||h!==null){u(r());return}const d=this.writeSync(n,s);u(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,h,u){u(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=e=>{e!==0&&console.warn("exit code:",e)},this._exitPromise=new Promise(e=>{this._resolveExitPromise=e}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(e,t)=>{this.mem.setUint32(e+0,t,!0),this.mem.setUint32(e+4,Math.floor(t/4294967296),!0)},n=e=>{const t=this.mem.getUint32(e+0,!0),o=this.mem.getInt32(e+4,!0);return t+o*4294967296},s=e=>{const t=this.mem.getFloat64(e,!0);if(t===0)return;if(!isNaN(t))return t;const o=this.mem.getUint32(e,!0);return this._values[o]},i=(e,t)=>{if(typeof t=="number"&&t!==0){if(isNaN(t)){this.mem.setUint32(e+4,2146959360,!0),this.mem.setUint32(e,0,!0);return}this.mem.setFloat64(e,t,!0);return}if(t===void 0){this.mem.setFloat64(e,0,!0);return}let l=this._ids.get(t);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=t,this._goRefCounts[l]=0,this._ids.set(t,l)),this._goRefCounts[l]++;let m=0;switch(typeof t){case"object":t!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(e+4,2146959360|m,!0),this.mem.setUint32(e,l,!0)},a=e=>{const t=n(e+0),o=n(e+8);return new Uint8Array(this._inst.exports.mem.buffer,t,o)},h=e=>{const t=n(e+0),o=n(e+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(t+m*8);return l},u=e=>{const t=n(e+0),o=n(e+8);return g.decode(new DataView(this._inst.exports.mem.buffer,t,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(t)},"runtime.wasmWrite":e=>{e>>>=0;const t=n(e+8),o=n(e+16),l=this.mem.getInt32(e+24,!0);globalThis.fs.writeSync(t,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":e=>{e>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":e=>{e>>>=0,c(e+8,(d+performance.now())*1e6)},"runtime.walltime":e=>{e>>>=0;const t=new Date().getTime();c(e+8,t/1e3),this.mem.setInt32(e+16,t%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":e=>{e>>>=0;const t=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(t,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(t);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(e+8)+1)),this.mem.setInt32(e+16,t,!0)},"runtime.clearTimeoutEvent":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);clearTimeout(this._scheduledTimeouts.get(t)),this._scheduledTimeouts.delete(t)},"runtime.getRandomData":e=>{e>>>=0,crypto.getRandomValues(a(e+8))},"syscall/js.finalizeRef":e=>{e>>>=0;const t=this.mem.getUint32(e+8,!0);if(this._goRefCounts[t]--,this._goRefCounts[t]===0){const o=this._values[t];this._values[t]=null,this._ids.delete(o),this._idPool.push(t)}},"syscall/js.stringVal":e=>{e>>>=0,i(e+24,u(e+8))},"syscall/js.valueGet":e=>{e>>>=0;const t=Reflect.get(s(e+8),u(e+16));e=this._inst.exports.getsp()>>>0,i(e+32,t)},"syscall/js.valueSet":e=>{e>>>=0,Reflect.set(s(e+8),u(e+16),s(e+32))},"syscall/js.valueDelete":e=>{e>>>=0,Reflect.deleteProperty(s(e+8),u(e+16))},"syscall/js.valueIndex":e=>{e>>>=0,i(e+24,Reflect.get(s(e+8),n(e+16)))},"syscall/js.valueSetIndex":e=>{e>>>=0,Reflect.set(s(e+8),n(e+16),s(e+24))},"syscall/js.valueCall":e=>{e>>>=0;try{const t=s(e+8),o=Reflect.get(t,u(e+16)),l=h(e+32),m=Reflect.apply(o,t,l);e=this._inst.exports.getsp()>>>0,i(e+56,m),this.mem.setUint8(e+64,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+56,t),this.mem.setUint8(e+64,0)}},"syscall/js.valueInvoke":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.apply(t,void 0,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueNew":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.construct(t,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueLength":e=>{e>>>=0,c(e+16,parseInt(s(e+8).length))},"syscall/js.valuePrepareString":e=>{e>>>=0;const t=f.encode(String(s(e+8)));i(e+16,t),c(e+24,t.length)},"syscall/js.valueLoadString":e=>{e>>>=0;const t=s(e+8);a(e+16).set(t)},"syscall/js.valueInstanceOf":e=>{e>>>=0,this.mem.setUint8(e+24,s(e+8)instanceof s(e+16)?1:0)},"syscall/js.copyBytesToGo":e=>{e>>>=0;const t=a(e+8),o=s(e+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},"syscall/js.copyBytesToJS":e=>{e>>>=0;const t=s(e+8),o=a(e+16);if(!(t instanceof Uint8Array||t instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},debug:e=>{console.log(e)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=e=>{const t=n,o=f.encode(e+"\\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),t},i=this.argv.length,a=[];this.argv.forEach(e=>{a.push(s(e))}),a.push(0),Object.keys(this.env).sort().forEach(e=>{a.push(s(`${e}=${this.env[e]}`))}),a.push(0);const u=n;a.forEach(e=>{this.mem.setUint32(n,e,!0),this.mem.setUint32(n+4,0,!0),n+=8});const d=4096+8192;if(n>=d)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){c+=f.decode(u);let d=c.split(`\n`);d.length>1&&console.log(d.slice(0,-1).join(`\n`)),c=d[d.length-1]}else throw new Error("Bad write");return u.length};let n=[],s,i=0;onmessage=({data:h})=>{h.length>0&&(n.push(h),s&&s())},g.read=(h,u,d,e,t,o)=>{if(h!==0||d!==0||e!==u.length||t!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(h,u,d,e,t,o);return}let l=n[0],m=Math.max(0,Math.min(e,l.length-i));u.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;a.argv=["","--service=0.15.18"],tryToInstantiateModule(r,a).then(h=>{postMessage(null),a.run(h)},h=>{postMessage(h)})};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
+    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`\n`);return i!=-1&&(console.log(c.substr(0,i)),c=c.substr(i+1)),s.length},write(n,s,i,a,h,u){if(i!==0||a!==s.length||h!==null){u(r());return}const d=this.writeSync(n,s);u(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,h,u){u(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=e=>{e!==0&&console.warn("exit code:",e)},this._exitPromise=new Promise(e=>{this._resolveExitPromise=e}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(e,t)=>{this.mem.setUint32(e+0,t,!0),this.mem.setUint32(e+4,Math.floor(t/4294967296),!0)},n=e=>{const t=this.mem.getUint32(e+0,!0),o=this.mem.getInt32(e+4,!0);return t+o*4294967296},s=e=>{const t=this.mem.getFloat64(e,!0);if(t===0)return;if(!isNaN(t))return t;const o=this.mem.getUint32(e,!0);return this._values[o]},i=(e,t)=>{if(typeof t=="number"&&t!==0){if(isNaN(t)){this.mem.setUint32(e+4,2146959360,!0),this.mem.setUint32(e,0,!0);return}this.mem.setFloat64(e,t,!0);return}if(t===void 0){this.mem.setFloat64(e,0,!0);return}let l=this._ids.get(t);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=t,this._goRefCounts[l]=0,this._ids.set(t,l)),this._goRefCounts[l]++;let m=0;switch(typeof t){case"object":t!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(e+4,2146959360|m,!0),this.mem.setUint32(e,l,!0)},a=e=>{const t=n(e+0),o=n(e+8);return new Uint8Array(this._inst.exports.mem.buffer,t,o)},h=e=>{const t=n(e+0),o=n(e+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(t+m*8);return l},u=e=>{const t=n(e+0),o=n(e+8);return g.decode(new DataView(this._inst.exports.mem.buffer,t,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(t)},"runtime.wasmWrite":e=>{e>>>=0;const t=n(e+8),o=n(e+16),l=this.mem.getInt32(e+24,!0);globalThis.fs.writeSync(t,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":e=>{e>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":e=>{e>>>=0,c(e+8,(d+performance.now())*1e6)},"runtime.walltime":e=>{e>>>=0;const t=new Date().getTime();c(e+8,t/1e3),this.mem.setInt32(e+16,t%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":e=>{e>>>=0;const t=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(t,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(t);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(e+8)+1)),this.mem.setInt32(e+16,t,!0)},"runtime.clearTimeoutEvent":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);clearTimeout(this._scheduledTimeouts.get(t)),this._scheduledTimeouts.delete(t)},"runtime.getRandomData":e=>{e>>>=0,crypto.getRandomValues(a(e+8))},"syscall/js.finalizeRef":e=>{e>>>=0;const t=this.mem.getUint32(e+8,!0);if(this._goRefCounts[t]--,this._goRefCounts[t]===0){const o=this._values[t];this._values[t]=null,this._ids.delete(o),this._idPool.push(t)}},"syscall/js.stringVal":e=>{e>>>=0,i(e+24,u(e+8))},"syscall/js.valueGet":e=>{e>>>=0;const t=Reflect.get(s(e+8),u(e+16));e=this._inst.exports.getsp()>>>0,i(e+32,t)},"syscall/js.valueSet":e=>{e>>>=0,Reflect.set(s(e+8),u(e+16),s(e+32))},"syscall/js.valueDelete":e=>{e>>>=0,Reflect.deleteProperty(s(e+8),u(e+16))},"syscall/js.valueIndex":e=>{e>>>=0,i(e+24,Reflect.get(s(e+8),n(e+16)))},"syscall/js.valueSetIndex":e=>{e>>>=0,Reflect.set(s(e+8),n(e+16),s(e+24))},"syscall/js.valueCall":e=>{e>>>=0;try{const t=s(e+8),o=Reflect.get(t,u(e+16)),l=h(e+32),m=Reflect.apply(o,t,l);e=this._inst.exports.getsp()>>>0,i(e+56,m),this.mem.setUint8(e+64,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+56,t),this.mem.setUint8(e+64,0)}},"syscall/js.valueInvoke":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.apply(t,void 0,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueNew":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.construct(t,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueLength":e=>{e>>>=0,c(e+16,parseInt(s(e+8).length))},"syscall/js.valuePrepareString":e=>{e>>>=0;const t=f.encode(String(s(e+8)));i(e+16,t),c(e+24,t.length)},"syscall/js.valueLoadString":e=>{e>>>=0;const t=s(e+8);a(e+16).set(t)},"syscall/js.valueInstanceOf":e=>{e>>>=0,this.mem.setUint8(e+24,s(e+8)instanceof s(e+16)?1:0)},"syscall/js.copyBytesToGo":e=>{e>>>=0;const t=a(e+8),o=s(e+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},"syscall/js.copyBytesToJS":e=>{e>>>=0;const t=s(e+8),o=a(e+16);if(!(t instanceof Uint8Array||t instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},debug:e=>{console.log(e)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=e=>{const t=n,o=f.encode(e+"\\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),t},i=this.argv.length,a=[];this.argv.forEach(e=>{a.push(s(e))}),a.push(0),Object.keys(this.env).sort().forEach(e=>{a.push(s(`${e}=${this.env[e]}`))}),a.push(0);const u=n;a.forEach(e=>{this.mem.setUint32(n,e,!0),this.mem.setUint32(n+4,0,!0),n+=8});const d=4096+8192;if(n>=d)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){c+=f.decode(u);let d=c.split(`\n`);d.length>1&&console.log(d.slice(0,-1).join(`\n`)),c=d[d.length-1]}else throw new Error("Bad write");return u.length};let n=[],s,i=0;onmessage=({data:h})=>{h.length>0&&(n.push(h),s&&s())},g.read=(h,u,d,e,t,o)=>{if(h!==0||d!==0||e!==u.length||t!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(h,u,d,e,t,o);return}let l=n[0],m=Math.max(0,Math.min(e,l.length-i));u.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;a.argv=["","--service=0.16.0"],tryToInstantiateModule(r,a).then(h=>{postMessage(null),a.run(h)},h=>{postMessage(h)})};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
     worker = new Worker(URL.createObjectURL(blob), { type: "module" });
   } else {
     let onmessage = (postMessage=>{
@@ -1704,7 +1720,7 @@ var startRunningService = async (wasmURL, wasmModule, useWorker) => {
 let onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`
 `);return i!=-1&&(console.log(c.substr(0,i)),c=c.substr(i+1)),s.length},write(n,s,i,a,h,u){if(i!==0||a!==s.length||h!==null){u(r());return}const d=this.writeSync(n,s);u(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,h,u){u(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=e=>{e!==0&&console.warn("exit code:",e)},this._exitPromise=new Promise(e=>{this._resolveExitPromise=e}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(e,t)=>{this.mem.setUint32(e+0,t,!0),this.mem.setUint32(e+4,Math.floor(t/4294967296),!0)},n=e=>{const t=this.mem.getUint32(e+0,!0),o=this.mem.getInt32(e+4,!0);return t+o*4294967296},s=e=>{const t=this.mem.getFloat64(e,!0);if(t===0)return;if(!isNaN(t))return t;const o=this.mem.getUint32(e,!0);return this._values[o]},i=(e,t)=>{if(typeof t=="number"&&t!==0){if(isNaN(t)){this.mem.setUint32(e+4,2146959360,!0),this.mem.setUint32(e,0,!0);return}this.mem.setFloat64(e,t,!0);return}if(t===void 0){this.mem.setFloat64(e,0,!0);return}let l=this._ids.get(t);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=t,this._goRefCounts[l]=0,this._ids.set(t,l)),this._goRefCounts[l]++;let m=0;switch(typeof t){case"object":t!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(e+4,2146959360|m,!0),this.mem.setUint32(e,l,!0)},a=e=>{const t=n(e+0),o=n(e+8);return new Uint8Array(this._inst.exports.mem.buffer,t,o)},h=e=>{const t=n(e+0),o=n(e+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(t+m*8);return l},u=e=>{const t=n(e+0),o=n(e+8);return g.decode(new DataView(this._inst.exports.mem.buffer,t,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(t)},"runtime.wasmWrite":e=>{e>>>=0;const t=n(e+8),o=n(e+16),l=this.mem.getInt32(e+24,!0);globalThis.fs.writeSync(t,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":e=>{e>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":e=>{e>>>=0,c(e+8,(d+performance.now())*1e6)},"runtime.walltime":e=>{e>>>=0;const t=new Date().getTime();c(e+8,t/1e3),this.mem.setInt32(e+16,t%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":e=>{e>>>=0;const t=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(t,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(t);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(e+8)+1)),this.mem.setInt32(e+16,t,!0)},"runtime.clearTimeoutEvent":e=>{e>>>=0;const t=this.mem.getInt32(e+8,!0);clearTimeout(this._scheduledTimeouts.get(t)),this._scheduledTimeouts.delete(t)},"runtime.getRandomData":e=>{e>>>=0,crypto.getRandomValues(a(e+8))},"syscall/js.finalizeRef":e=>{e>>>=0;const t=this.mem.getUint32(e+8,!0);if(this._goRefCounts[t]--,this._goRefCounts[t]===0){const o=this._values[t];this._values[t]=null,this._ids.delete(o),this._idPool.push(t)}},"syscall/js.stringVal":e=>{e>>>=0,i(e+24,u(e+8))},"syscall/js.valueGet":e=>{e>>>=0;const t=Reflect.get(s(e+8),u(e+16));e=this._inst.exports.getsp()>>>0,i(e+32,t)},"syscall/js.valueSet":e=>{e>>>=0,Reflect.set(s(e+8),u(e+16),s(e+32))},"syscall/js.valueDelete":e=>{e>>>=0,Reflect.deleteProperty(s(e+8),u(e+16))},"syscall/js.valueIndex":e=>{e>>>=0,i(e+24,Reflect.get(s(e+8),n(e+16)))},"syscall/js.valueSetIndex":e=>{e>>>=0,Reflect.set(s(e+8),n(e+16),s(e+24))},"syscall/js.valueCall":e=>{e>>>=0;try{const t=s(e+8),o=Reflect.get(t,u(e+16)),l=h(e+32),m=Reflect.apply(o,t,l);e=this._inst.exports.getsp()>>>0,i(e+56,m),this.mem.setUint8(e+64,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+56,t),this.mem.setUint8(e+64,0)}},"syscall/js.valueInvoke":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.apply(t,void 0,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueNew":e=>{e>>>=0;try{const t=s(e+8),o=h(e+16),l=Reflect.construct(t,o);e=this._inst.exports.getsp()>>>0,i(e+40,l),this.mem.setUint8(e+48,1)}catch(t){e=this._inst.exports.getsp()>>>0,i(e+40,t),this.mem.setUint8(e+48,0)}},"syscall/js.valueLength":e=>{e>>>=0,c(e+16,parseInt(s(e+8).length))},"syscall/js.valuePrepareString":e=>{e>>>=0;const t=f.encode(String(s(e+8)));i(e+16,t),c(e+24,t.length)},"syscall/js.valueLoadString":e=>{e>>>=0;const t=s(e+8);a(e+16).set(t)},"syscall/js.valueInstanceOf":e=>{e>>>=0,this.mem.setUint8(e+24,s(e+8)instanceof s(e+16)?1:0)},"syscall/js.copyBytesToGo":e=>{e>>>=0;const t=a(e+8),o=s(e+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},"syscall/js.copyBytesToJS":e=>{e>>>=0;const t=s(e+8),o=a(e+16);if(!(t instanceof Uint8Array||t instanceof Uint8ClampedArray)){this.mem.setUint8(e+48,0);return}const l=o.subarray(0,t.length);t.set(l),c(e+40,l.length),this.mem.setUint8(e+48,1)},debug:e=>{console.log(e)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=e=>{const t=n,o=f.encode(e+"\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),t},i=this.argv.length,a=[];this.argv.forEach(e=>{a.push(s(e))}),a.push(0),Object.keys(this.env).sort().forEach(e=>{a.push(s(`${e}=${this.env[e]}`))}),a.push(0);const u=n;a.forEach(e=>{this.mem.setUint32(n,e,!0),this.mem.setUint32(n+4,0,!0),n+=8});const d=4096+8192;if(n>=d)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){c+=f.decode(u);let d=c.split(`
 `);d.length>1&&console.log(d.slice(0,-1).join(`
-`)),c=d[d.length-1]}else throw new Error("Bad write");return u.length};let n=[],s,i=0;onmessage=({data:h})=>{h.length>0&&(n.push(h),s&&s())},g.read=(h,u,d,e,t,o)=>{if(h!==0||d!==0||e!==u.length||t!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(h,u,d,e,t,o);return}let l=n[0],m=Math.max(0,Math.min(e,l.length-i));u.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;a.argv=["","--service=0.15.18"],tryToInstantiateModule(r,a).then(h=>{postMessage(null),a.run(h)},h=>{postMessage(h)})};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
+`)),c=d[d.length-1]}else throw new Error("Bad write");return u.length};let n=[],s,i=0;onmessage=({data:h})=>{h.length>0&&(n.push(h),s&&s())},g.read=(h,u,d,e,t,o)=>{if(h!==0||d!==0||e!==u.length||t!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(h,u,d,e,t,o);return}let l=n[0],m=Math.max(0,Math.min(e,l.length-i));u.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;a.argv=["","--service=0.16.0"],tryToInstantiateModule(r,a).then(h=>{postMessage(null),a.run(h)},h=>{postMessage(h)})};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
     worker = {
       onmessage: null,
       postMessage: (data) => setTimeout(() => onmessage({ data })),
