@@ -415,6 +415,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let mainFields = getFlag(options, keys, "mainFields", mustBeArray);
   let conditions = getFlag(options, keys, "conditions", mustBeArray);
   let external = getFlag(options, keys, "external", mustBeArray);
+  let packages = getFlag(options, keys, "packages", mustBeString);
   let alias = getFlag(options, keys, "alias", mustBeObject);
   let loader = getFlag(options, keys, "loader", mustBeObject);
   let outExtension = getFlag(options, keys, "outExtension", mustBeObject);
@@ -465,6 +466,8 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     flags.push(`--outbase=${outbase}`);
   if (tsconfig)
     flags.push(`--tsconfig=${tsconfig}`);
+  if (packages)
+    flags.push(`--packages=${packages}`);
   if (resolveExtensions) {
     let values = [];
     for (let value of resolveExtensions) {
@@ -712,8 +715,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.16.4") {
-        throw new Error(`Cannot start service: Host version "${"0.16.4"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.16.5") {
+        throw new Error(`Cannot start service: Host version "${"0.16.5"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1666,7 +1669,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.16.4";
+var version = "0.16.5";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
