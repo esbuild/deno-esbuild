@@ -715,8 +715,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.16.13") {
-        throw new Error(`Cannot start service: Host version "${"0.16.13"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.16.14") {
+        throw new Error(`Cannot start service: Host version "${"0.16.14"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1671,7 +1671,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.16.13";
+var version = "0.16.14";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1721,6 +1721,7 @@ async function installFromNPM(name, subpath) {
   await Deno.mkdir(finalDir, {
     recursive: true,
     mode: 448
+    // https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
   });
   await Deno.writeFile(finalPath, executable, { mode: 493 });
   return finalPath;
@@ -1790,10 +1791,12 @@ async function install() {
     "x86_64-pc-windows-msvc": "@esbuild/win32-x64"
   };
   const knownUnixlikePackages = {
+    // These are the only platforms that Deno supports
     "aarch64-apple-darwin": "@esbuild/darwin-arm64",
     "aarch64-unknown-linux-gnu": "@esbuild/linux-arm64",
     "x86_64-apple-darwin": "@esbuild/darwin-x64",
     "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
+    // These platforms are not supported by Deno
     "x86_64-unknown-freebsd": "@esbuild/freebsd-x64"
   };
   if (platformKey in knownWindowsPackages) {
