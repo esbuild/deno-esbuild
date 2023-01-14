@@ -12,10 +12,10 @@ __export(mod_exports, {
   analyzeMetafileSync: () => analyzeMetafileSync,
   build: () => build,
   buildSync: () => buildSync,
+  context: () => context,
   formatMessages: () => formatMessages,
   formatMessagesSync: () => formatMessagesSync,
   initialize: () => initialize,
-  serve: () => serve,
   stop: () => stop,
   transform: () => transform,
   transformSync: () => transformSync,
@@ -202,7 +202,6 @@ function validateTarget(target) {
 }
 var canBeAnything = () => null;
 var mustBeBoolean = (value) => typeof value === "boolean" ? null : "a boolean";
-var mustBeBooleanOrObject = (value) => typeof value === "boolean" || typeof value === "object" && !Array.isArray(value) ? null : "a boolean or an object";
 var mustBeString = (value) => typeof value === "string" ? null : "a string";
 var mustBeRegExp = (value) => value instanceof RegExp ? null : "a RegExp object";
 var mustBeInteger = (value) => typeof value === "number" && value === (value | 0) ? null : "an integer";
@@ -397,12 +396,10 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let keys = /* @__PURE__ */ Object.create(null);
   let stdinContents = null;
   let stdinResolveDir = null;
-  let watchMode = null;
   pushLogFlags(flags, options, keys, isTTY, logLevelDefault);
   pushCommonFlags(flags, options, keys);
   let sourcemap = getFlag(options, keys, "sourcemap", mustBeStringOrBoolean);
   let bundle = getFlag(options, keys, "bundle", mustBeBoolean);
-  let watch = getFlag(options, keys, "watch", mustBeBooleanOrObject);
   let splitting = getFlag(options, keys, "splitting", mustBeBoolean);
   let preserveSymlinks = getFlag(options, keys, "preserveSymlinks", mustBeBoolean);
   let metafile = getFlag(options, keys, "metafile", mustBeBoolean);
@@ -431,7 +428,6 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let stdin = getFlag(options, keys, "stdin", mustBeObject);
   let write = getFlag(options, keys, "write", mustBeBoolean) ?? writeDefault;
   let allowOverwrite = getFlag(options, keys, "allowOverwrite", mustBeBoolean);
-  let incremental = getFlag(options, keys, "incremental", mustBeBoolean) === true;
   let mangleCache = getFlag(options, keys, "mangleCache", mustBeObject);
   keys.plugins = true;
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
@@ -441,17 +437,6 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     flags.push("--bundle");
   if (allowOverwrite)
     flags.push("--allow-overwrite");
-  if (watch) {
-    flags.push("--watch");
-    if (typeof watch === "boolean") {
-      watchMode = {};
-    } else {
-      let watchKeys = /* @__PURE__ */ Object.create(null);
-      let onRebuild = getFlag(watch, watchKeys, "onRebuild", mustBeFunction);
-      checkForInvalidFlags(watch, watchKeys, `on "watch" in ${callName}() call`);
-      watchMode = { onRebuild };
-    }
-  }
   if (splitting)
     flags.push("--splitting");
   if (preserveSymlinks)
@@ -590,9 +575,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     stdinContents,
     stdinResolveDir,
     absWorkingDir,
-    incremental,
     nodePaths,
-    watch: watchMode,
     mangleCache: validateMangleCache(mangleCache)
   };
 }
@@ -715,8 +698,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.16.17") {
-        throw new Error(`Cannot start service: Host version "${"0.16.17"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.17.0") {
+        throw new Error(`Cannot start service: Host version "${"0.17.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -732,7 +715,7 @@ function createChannel(streamIn) {
         callback(null, packet.value);
     }
   };
-  let buildOrServe = ({ callName, refs, serveOptions, options, isTTY, defaultWD: defaultWD2, callback }) => {
+  let buildOrContext = ({ callName, refs, options, isTTY, defaultWD: defaultWD2, callback }) => {
     let refCount = 0;
     const buildKey = nextBuildKey++;
     const requestCallbacks = {};
@@ -753,7 +736,7 @@ function createChannel(streamIn) {
     };
     requestCallbacksByKey[buildKey] = requestCallbacks;
     buildRefs.ref();
-    buildOrServeImpl(
+    buildOrContextImpl(
       callName,
       buildKey,
       sendRequest,
@@ -762,10 +745,8 @@ function createChannel(streamIn) {
       streamIn,
       requestCallbacks,
       options,
-      serveOptions,
       isTTY,
       defaultWD2,
-      closeData,
       (err, res) => {
         try {
           callback(err, res);
@@ -801,7 +782,13 @@ function createChannel(streamIn) {
           let outstanding = 1;
           let next = () => {
             if (--outstanding === 0) {
-              let result = { warnings, code: response.code, map: response.map };
+              let result = {
+                warnings,
+                code: response.code,
+                map: response.map,
+                mangleCache: void 0,
+                legalComments: void 0
+              };
               if ("legalComments" in response)
                 result.legalComments = response?.legalComments;
               if (response.mangleCache)
@@ -907,30 +894,26 @@ function createChannel(streamIn) {
     readFromStdout,
     afterClose,
     service: {
-      buildOrServe,
+      buildOrContext,
       transform: transform2,
       formatMessages: formatMessages2,
       analyzeMetafile: analyzeMetafile2
     }
   };
 }
-function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, streamIn, requestCallbacks, options, serveOptions, isTTY, defaultWD2, closeData, callback) {
+function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs, streamIn, requestCallbacks, options, isTTY, defaultWD2, callback) {
   const details = createObjectStash();
-  const logPluginError = (e, pluginName, note, done) => {
+  const isContext = callName === "context";
+  const handleError = (e, pluginName) => {
     const flags = [];
     try {
       pushLogFlags(flags, options, {}, isTTY, buildLogLevelDefault);
     } catch {
     }
-    const message = extractErrorMessageV8(e, streamIn, details, note, pluginName);
+    const message = extractErrorMessageV8(e, streamIn, details, void 0, pluginName);
     sendRequest(refs, { command: "error", flags, error: message }, () => {
       message.detail = details.load(message.detail);
-      done(message);
-    });
-  };
-  const handleError = (e, pluginName) => {
-    logPluginError(e, pluginName, void 0, (error) => {
-      callback(failureErrorWithLog("Build failed", [error], []), null);
+      callback(failureErrorWithLog(isContext ? "Context failed" : "Build failed", [message], []), null);
     });
   };
   let plugins;
@@ -938,15 +921,13 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
     const value = options.plugins;
     if (value !== void 0) {
       if (!Array.isArray(value))
-        throw new Error(`"plugins" must be an array`);
+        return handleError(new Error(`"plugins" must be an array`), "");
       plugins = value;
     }
   }
   if (plugins && plugins.length > 0) {
-    if (streamIn.isSync) {
-      handleError(new Error("Cannot use plugins in synchronous API calls"), "");
-      return;
-    }
+    if (streamIn.isSync)
+      return handleError(new Error("Cannot use plugins in synchronous API calls"), "");
     handlePlugins(
       buildKey,
       sendRequest,
@@ -959,12 +940,10 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
       details
     ).then(
       (result) => {
-        if (!result.ok) {
-          handleError(result.error, result.pluginName);
-          return;
-        }
+        if (!result.ok)
+          return handleError(result.error, result.pluginName);
         try {
-          buildOrServeContinue(result.requestPlugins, result.runOnEndCallbacks);
+          buildOrContextContinue(result.requestPlugins, result.runOnEndCallbacks);
         } catch (e) {
           handleError(e, "");
         }
@@ -974,25 +953,25 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
     return;
   }
   try {
-    buildOrServeContinue(null, (result, logPluginError2, done) => done());
+    buildOrContextContinue(null, (result, done) => done([], []));
   } catch (e) {
     handleError(e, "");
   }
-  function buildOrServeContinue(requestPlugins, runOnEndCallbacks) {
-    let writeDefault = !streamIn.isWriteUnavailable;
-    let {
+  function buildOrContextContinue(requestPlugins, runOnEndCallbacks) {
+    const writeDefault = streamIn.hasFS;
+    const {
       entries,
       flags,
       write,
       stdinContents,
       stdinResolveDir,
       absWorkingDir,
-      incremental,
       nodePaths,
-      watch,
       mangleCache
     } = flagsForBuildOptions(callName, options, isTTY, buildLogLevelDefault, writeDefault);
-    let request = {
+    if (write && !streamIn.hasFS)
+      throw new Error(`The "write" option is unavailable in this environment`);
+    const request = {
       command: "build",
       key: buildKey,
       entries,
@@ -1001,17 +980,23 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
       stdinContents,
       stdinResolveDir,
       absWorkingDir: absWorkingDir || defaultWD2,
-      incremental,
-      nodePaths
+      nodePaths,
+      context: isContext
     };
     if (requestPlugins)
       request.plugins = requestPlugins;
     if (mangleCache)
       request.mangleCache = mangleCache;
-    let serve2 = serveOptions && buildServeData(buildKey, sendRequest, sendResponse, refs, requestCallbacks, serveOptions, request);
-    let rebuild;
-    let stop2;
-    let copyResponseToResult = (response, result) => {
+    const buildResponseToResult = (response, callback2) => {
+      const result = {
+        errors: replaceDetailsInMessages(response.errors, details),
+        warnings: replaceDetailsInMessages(response.warnings, details),
+        outputFiles: void 0,
+        metafile: void 0,
+        mangleCache: void 0
+      };
+      const originalErrors = result.errors.slice();
+      const originalWarnings = result.warnings.slice();
       if (response.outputFiles)
         result.outputFiles = response.outputFiles.map(convertOutputFiles);
       if (response.metafile)
@@ -1020,165 +1005,141 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
         result.mangleCache = response.mangleCache;
       if (response.writeToStdout !== void 0)
         console.log(decodeUTF8(response.writeToStdout).replace(/\n$/, ""));
-    };
-    let buildResponseToResult = (response, callback2) => {
-      let result = {
-        errors: replaceDetailsInMessages(response.errors, details),
-        warnings: replaceDetailsInMessages(response.warnings, details)
-      };
-      copyResponseToResult(response, result);
-      runOnEndCallbacks(result, logPluginError, () => {
-        if (result.errors.length > 0) {
-          return callback2(failureErrorWithLog("Build failed", result.errors, result.warnings), null);
+      runOnEndCallbacks(result, (onEndErrors, onEndWarnings) => {
+        if (originalErrors.length > 0 || onEndErrors.length > 0) {
+          const error = failureErrorWithLog("Build failed", originalErrors.concat(onEndErrors), originalWarnings.concat(onEndWarnings));
+          return callback2(error, null, onEndErrors, onEndWarnings);
         }
-        if (response.rebuild) {
-          if (!rebuild) {
-            let isDisposed = false;
-            rebuild = () => new Promise((resolve, reject) => {
-              if (isDisposed || closeData.didClose)
-                throw new Error("Cannot rebuild");
-              sendRequest(
-                refs,
-                { command: "rebuild", key: buildKey },
-                (error2, response2) => {
-                  if (error2) {
-                    const message = { id: "", pluginName: "", text: error2, location: null, notes: [], detail: void 0 };
-                    return callback2(failureErrorWithLog("Build failed", [message], []), null);
-                  }
-                  buildResponseToResult(response2, (error3, result3) => {
-                    if (error3)
-                      reject(error3);
-                    else
-                      resolve(result3);
-                  });
-                }
-              );
-            });
-            refs.ref();
-            rebuild.dispose = () => {
-              if (isDisposed)
-                return;
-              isDisposed = true;
-              sendRequest(refs, { command: "rebuild-dispose", key: buildKey }, () => {
-              });
-              refs.unref();
-            };
-          }
-          result.rebuild = rebuild;
-        }
-        if (response.watch) {
-          if (!stop2) {
-            let isStopped = false;
-            refs.ref();
-            stop2 = () => {
-              if (isStopped)
-                return;
-              isStopped = true;
-              delete requestCallbacks["watch-rebuild"];
-              sendRequest(refs, { command: "watch-stop", key: buildKey }, () => {
-              });
-              refs.unref();
-            };
-            if (watch) {
-              requestCallbacks["watch-rebuild"] = (id, request2) => {
-                try {
-                  let watchResponse = request2.args;
-                  let result2 = {
-                    errors: replaceDetailsInMessages(watchResponse.errors, details),
-                    warnings: replaceDetailsInMessages(watchResponse.warnings, details)
-                  };
-                  copyResponseToResult(watchResponse, result2);
-                  runOnEndCallbacks(result2, logPluginError, () => {
-                    if (result2.errors.length > 0) {
-                      if (watch.onRebuild)
-                        watch.onRebuild(failureErrorWithLog("Build failed", result2.errors, result2.warnings), null);
-                      return;
-                    }
-                    result2.stop = stop2;
-                    if (watch.onRebuild)
-                      watch.onRebuild(null, result2);
-                  });
-                } catch (err) {
-                  console.error(err);
-                }
-                sendResponse(id, {});
-              };
-            }
-          }
-          result.stop = stop2;
-        }
-        callback2(null, result);
+        callback2(null, result, onEndErrors, onEndWarnings);
       });
     };
-    if (write && streamIn.isWriteUnavailable)
-      throw new Error(`The "write" option is unavailable in this environment`);
-    if (incremental && streamIn.isSync)
-      throw new Error(`Cannot use "incremental" with a synchronous build`);
-    if (watch && streamIn.isSync)
-      throw new Error(`Cannot use "watch" with a synchronous build`);
+    let latestResultPromise;
+    let provideLatestResult;
+    if (isContext)
+      requestCallbacks["on-end"] = (id, request2) => new Promise((resolve) => {
+        buildResponseToResult(request2, (err, result, onEndErrors, onEndWarnings) => {
+          const response = {
+            errors: onEndErrors,
+            warnings: onEndWarnings
+          };
+          if (provideLatestResult)
+            provideLatestResult(err, result);
+          latestResultPromise = void 0;
+          provideLatestResult = void 0;
+          sendResponse(id, response);
+          resolve();
+        });
+      });
     sendRequest(refs, request, (error, response) => {
       if (error)
         return callback(new Error(error), null);
-      if (serve2) {
-        let serveResponse = response;
-        let isStopped = false;
-        refs.ref();
-        let result = {
-          port: serveResponse.port,
-          host: serveResponse.host,
-          wait: serve2.wait,
-          stop() {
-            if (isStopped)
-              return;
-            isStopped = true;
-            serve2.stop();
-            refs.unref();
-          }
-        };
-        refs.ref();
-        serve2.wait.then(refs.unref, refs.unref);
-        return callback(null, result);
+      if (!isContext) {
+        return buildResponseToResult(response, callback);
       }
-      return buildResponseToResult(response, callback);
+      if (response.errors.length > 0) {
+        return callback(failureErrorWithLog("Context failed", response.errors, response.warnings), null);
+      }
+      let didDispose = false;
+      const result = {
+        rebuild: () => {
+          if (!latestResultPromise)
+            latestResultPromise = new Promise((resolve, reject) => {
+              let settlePromise;
+              provideLatestResult = (err, result2) => {
+                if (!settlePromise)
+                  settlePromise = () => err ? reject(err) : resolve(result2);
+              };
+              const triggerAnotherBuild = () => {
+                const request2 = {
+                  command: "rebuild",
+                  key: buildKey
+                };
+                sendRequest(refs, request2, (error2, response2) => {
+                  if (error2) {
+                    reject(new Error(error2));
+                  } else if (settlePromise) {
+                    settlePromise();
+                  } else {
+                    triggerAnotherBuild();
+                  }
+                });
+              };
+              triggerAnotherBuild();
+            });
+          return latestResultPromise;
+        },
+        watch: (options2 = {}) => new Promise((resolve, reject) => {
+          if (!streamIn.hasFS)
+            throw new Error(`Cannot use the "watch" API in this environment`);
+          const keys = {};
+          checkForInvalidFlags(options2, keys, `in watch() call`);
+          const request2 = {
+            command: "watch",
+            key: buildKey
+          };
+          sendRequest(refs, request2, (error2) => {
+            if (error2)
+              reject(new Error(error2));
+            else
+              resolve(void 0);
+          });
+        }),
+        serve: (options2 = {}) => new Promise((resolve, reject) => {
+          if (!streamIn.hasFS)
+            throw new Error(`Cannot use the "serve" API in this environment`);
+          const keys = {};
+          const port = getFlag(options2, keys, "port", mustBeInteger);
+          const host = getFlag(options2, keys, "host", mustBeString);
+          const servedir = getFlag(options2, keys, "servedir", mustBeString);
+          const keyfile = getFlag(options2, keys, "keyfile", mustBeString);
+          const certfile = getFlag(options2, keys, "certfile", mustBeString);
+          const onRequest = getFlag(options2, keys, "onRequest", mustBeFunction);
+          checkForInvalidFlags(options2, keys, `in serve() call`);
+          const request2 = {
+            command: "serve",
+            key: buildKey,
+            onRequest: !!onRequest
+          };
+          if (port !== void 0)
+            request2.port = port;
+          if (host !== void 0)
+            request2.host = host;
+          if (servedir !== void 0)
+            request2.servedir = servedir;
+          if (keyfile !== void 0)
+            request2.keyfile = keyfile;
+          if (certfile !== void 0)
+            request2.certfile = certfile;
+          sendRequest(refs, request2, (error2, response2) => {
+            if (error2)
+              return reject(new Error(error2));
+            if (onRequest) {
+              requestCallbacks["serve-request"] = (id, request3) => {
+                onRequest(request3.args);
+                sendResponse(id, {});
+              };
+            }
+            resolve(response2);
+          });
+        }),
+        dispose: () => new Promise((resolve) => {
+          if (didDispose)
+            return resolve();
+          const request2 = {
+            command: "dispose",
+            key: buildKey
+          };
+          sendRequest(refs, request2, () => {
+            resolve();
+            refs.unref();
+          });
+        })
+      };
+      refs.ref();
+      callback(null, result);
     });
   }
 }
-var buildServeData = (buildKey, sendRequest, sendResponse, refs, requestCallbacks, options, request) => {
-  let keys = {};
-  let port = getFlag(options, keys, "port", mustBeInteger);
-  let host = getFlag(options, keys, "host", mustBeString);
-  let servedir = getFlag(options, keys, "servedir", mustBeString);
-  let onRequest = getFlag(options, keys, "onRequest", mustBeFunction);
-  let wait = new Promise((resolve, reject) => {
-    requestCallbacks["serve-wait"] = (id, request2) => {
-      if (request2.error !== null)
-        reject(new Error(request2.error));
-      else
-        resolve();
-      sendResponse(id, {});
-    };
-  });
-  request.serve = {};
-  checkForInvalidFlags(options, keys, `in serve() call`);
-  if (port !== void 0)
-    request.serve.port = port;
-  if (host !== void 0)
-    request.serve.host = host;
-  if (servedir !== void 0)
-    request.serve.servedir = servedir;
-  requestCallbacks["serve-request"] = (id, request2) => {
-    if (onRequest)
-      onRequest(request2.args);
-    sendResponse(id, {});
-  };
-  return {
-    wait,
-    stop() {
-      sendRequest(refs, { command: "serve-stop", key: buildKey }, () => {
-      });
-    }
-  };
-};
 var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, requestCallbacks, initialOptions, plugins, details) => {
   let onStartCallbacks = [];
   let onEndCallbacks = [];
@@ -1449,18 +1410,49 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
     }
     sendResponse(id, response);
   };
-  let runOnEndCallbacks = (result, logPluginError, done) => done();
+  let runOnEndCallbacks = (result, done) => done([], []);
   if (onEndCallbacks.length > 0) {
-    runOnEndCallbacks = (result, logPluginError, done) => {
+    runOnEndCallbacks = (result, done) => {
       (async () => {
+        const onEndErrors = [];
+        const onEndWarnings = [];
         for (const { name, callback, note } of onEndCallbacks) {
+          let newErrors;
+          let newWarnings;
           try {
-            await callback(result);
+            const value = await callback(result);
+            if (value != null) {
+              if (typeof value !== "object")
+                throw new Error(`Expected onEnd() callback in plugin ${quote(name)} to return an object`);
+              let keys = {};
+              let errors = getFlag(value, keys, "errors", mustBeArray);
+              let warnings = getFlag(value, keys, "warnings", mustBeArray);
+              checkForInvalidFlags(value, keys, `from onEnd() callback in plugin ${quote(name)}`);
+              if (errors != null)
+                newErrors = sanitizeMessages(errors, "errors", details, name);
+              if (warnings != null)
+                newWarnings = sanitizeMessages(warnings, "warnings", details, name);
+            }
           } catch (e) {
-            result.errors.push(await new Promise((resolve) => logPluginError(e, name, note && note(), resolve)));
+            newErrors = [extractErrorMessageV8(e, streamIn, details, note && note(), name)];
+          }
+          if (newErrors) {
+            onEndErrors.push(...newErrors);
+            try {
+              result.errors.push(...newErrors);
+            } catch {
+            }
+          }
+          if (newWarnings) {
+            onEndWarnings.push(...newWarnings);
+            try {
+              result.warnings.push(...newWarnings);
+            } catch {
+            }
           }
         }
-      })().then(done);
+        done(onEndErrors, onEndWarnings);
+      })();
     };
   }
   isSetupDone = true;
@@ -1675,9 +1667,9 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.16.17";
+var version = "0.17.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
-var serve = (serveOptions, buildOptions) => ensureServiceIsRunning().then((service) => service.serve(serveOptions, buildOptions));
+var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
 var formatMessages = (messages, options) => ensureServiceIsRunning().then((service) => service.formatMessages(messages, options));
 var analyzeMetafile = (metafile, options) => ensureServiceIsRunning().then((service) => service.analyzeMetafile(metafile, options));
@@ -1855,7 +1847,7 @@ var ensureServiceIsRunning = () => {
           startWriteFromQueueWorker();
         },
         isSync: false,
-        isWriteUnavailable: false,
+        hasFS: true,
         esbuild: mod_exports
       });
       const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
@@ -1875,84 +1867,70 @@ var ensureServiceIsRunning = () => {
       });
       readMoreStdout();
       return {
-        build: (options) => {
-          return new Promise((resolve, reject) => {
-            service.buildOrServe({
-              callName: "build",
-              refs: null,
-              serveOptions: null,
-              options,
-              isTTY,
-              defaultWD,
-              callback: (err, res) => err ? reject(err) : resolve(res)
-            });
-          });
-        },
-        serve: (serveOptions, buildOptions) => {
-          if (serveOptions === null || typeof serveOptions !== "object")
-            throw new Error("The first argument must be an object");
-          return new Promise((resolve, reject) => service.buildOrServe({
-            callName: "serve",
+        build: (options) => new Promise((resolve, reject) => {
+          service.buildOrContext({
+            callName: "build",
             refs: null,
-            serveOptions,
-            options: buildOptions,
+            options,
             isTTY,
             defaultWD,
             callback: (err, res) => err ? reject(err) : resolve(res)
-          }));
-        },
-        transform: (input, options) => {
-          return new Promise((resolve, reject) => service.transform({
-            callName: "transform",
-            refs: null,
-            input,
-            options: options || {},
-            isTTY,
-            fs: {
-              readFile(tempFile, callback) {
-                Deno.readFile(tempFile).then(
-                  (bytes) => {
-                    let text = new TextDecoder().decode(bytes);
-                    try {
-                      Deno.remove(tempFile);
-                    } catch (e) {
-                    }
-                    callback(null, text);
-                  },
-                  (err) => callback(err, null)
-                );
-              },
-              writeFile(contents, callback) {
-                Deno.makeTempFile().then(
-                  (tempFile) => Deno.writeFile(tempFile, typeof contents === "string" ? new TextEncoder().encode(contents) : contents).then(
-                    () => callback(tempFile),
-                    () => callback(null)
-                  ),
-                  () => callback(null)
-                );
-              }
+          });
+        }),
+        context: (options) => new Promise((resolve, reject) => service.buildOrContext({
+          callName: "context",
+          refs: null,
+          options,
+          isTTY,
+          defaultWD,
+          callback: (err, res) => err ? reject(err) : resolve(res)
+        })),
+        transform: (input, options) => new Promise((resolve, reject) => service.transform({
+          callName: "transform",
+          refs: null,
+          input,
+          options: options || {},
+          isTTY,
+          fs: {
+            readFile(tempFile, callback) {
+              Deno.readFile(tempFile).then(
+                (bytes) => {
+                  let text = new TextDecoder().decode(bytes);
+                  try {
+                    Deno.remove(tempFile);
+                  } catch (e) {
+                  }
+                  callback(null, text);
+                },
+                (err) => callback(err, null)
+              );
             },
-            callback: (err, res) => err ? reject(err) : resolve(res)
-          }));
-        },
-        formatMessages: (messages, options) => {
-          return new Promise((resolve, reject) => service.formatMessages({
-            callName: "formatMessages",
-            refs: null,
-            messages,
-            options,
-            callback: (err, res) => err ? reject(err) : resolve(res)
-          }));
-        },
-        analyzeMetafile: (metafile, options) => {
-          return new Promise((resolve, reject) => service.analyzeMetafile({
-            callName: "analyzeMetafile",
-            refs: null,
-            metafile: typeof metafile === "string" ? metafile : JSON.stringify(metafile),
-            options,
-            callback: (err, res) => err ? reject(err) : resolve(res)
-          }));
-        }
+            writeFile(contents, callback) {
+              Deno.makeTempFile().then(
+                (tempFile) => Deno.writeFile(tempFile, typeof contents === "string" ? new TextEncoder().encode(contents) : contents).then(
+                  () => callback(tempFile),
+                  () => callback(null)
+                ),
+                () => callback(null)
+              );
+            }
+          },
+          callback: (err, res) => err ? reject(err) : resolve(res)
+        })),
+        formatMessages: (messages, options) => new Promise((resolve, reject) => service.formatMessages({
+          callName: "formatMessages",
+          refs: null,
+          messages,
+          options,
+          callback: (err, res) => err ? reject(err) : resolve(res)
+        })),
+        analyzeMetafile: (metafile, options) => new Promise((resolve, reject) => service.analyzeMetafile({
+          callName: "analyzeMetafile",
+          refs: null,
+          metafile: typeof metafile === "string" ? metafile : JSON.stringify(metafile),
+          options,
+          callback: (err, res) => err ? reject(err) : resolve(res)
+        }))
       };
     })();
   }
@@ -1974,10 +1952,10 @@ export {
   analyzeMetafileSync,
   build,
   buildSync,
+  context,
   formatMessages,
   formatMessagesSync,
   initialize,
-  serve,
   stop,
   transform,
   transformSync,
