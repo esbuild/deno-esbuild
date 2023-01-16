@@ -208,8 +208,8 @@ var mustBeInteger = (value) => typeof value === "number" && value === (value | 0
 var mustBeFunction = (value) => typeof value === "function" ? null : "a function";
 var mustBeArray = (value) => Array.isArray(value) ? null : "an array";
 var mustBeObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? null : "an object";
+var mustBeEntryPoints = (value) => typeof value === "object" && value !== null ? null : "an array or an object";
 var mustBeWebAssemblyModule = (value) => value instanceof WebAssembly.Module ? null : "a WebAssembly.Module";
-var mustBeArrayOrRecord = (value) => typeof value === "object" && value !== null ? null : "an array or an object";
 var mustBeObjectOrNull = (value) => typeof value === "object" && !Array.isArray(value) ? null : "an object or null";
 var mustBeStringOrBoolean = (value) => typeof value === "string" || typeof value === "boolean" ? null : "a string or a boolean";
 var mustBeStringOrObject = (value) => typeof value === "string" || typeof value === "object" && value !== null && !Array.isArray(value) ? null : "a string or an object";
@@ -423,7 +423,7 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let inject = getFlag(options, keys, "inject", mustBeArray);
   let banner = getFlag(options, keys, "banner", mustBeObject);
   let footer = getFlag(options, keys, "footer", mustBeObject);
-  let entryPoints = getFlag(options, keys, "entryPoints", mustBeArrayOrRecord);
+  let entryPoints = getFlag(options, keys, "entryPoints", mustBeEntryPoints);
   let absWorkingDir = getFlag(options, keys, "absWorkingDir", mustBeString);
   let stdin = getFlag(options, keys, "stdin", mustBeObject);
   let write = getFlag(options, keys, "write", mustBeBoolean) ?? writeDefault;
@@ -534,8 +534,21 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   }
   if (entryPoints) {
     if (Array.isArray(entryPoints)) {
-      for (let entryPoint of entryPoints) {
-        entries.push(["", validateStringValue(entryPoint, "entry point")]);
+      for (let i = 0, n = entryPoints.length; i < n; i++) {
+        let entryPoint = entryPoints[i];
+        if (typeof entryPoint === "object" && entryPoint !== null) {
+          let entryPointKeys = /* @__PURE__ */ Object.create(null);
+          let input = getFlag(entryPoint, entryPointKeys, "in", mustBeString);
+          let output = getFlag(entryPoint, entryPointKeys, "out", mustBeString);
+          checkForInvalidFlags(entryPoint, entryPointKeys, "in entry point at index " + i);
+          if (input === void 0)
+            throw new Error('Missing property "in" for entry point at index ' + i);
+          if (output === void 0)
+            throw new Error('Missing property "out" for entry point at index ' + i);
+          entries.push([output, input]);
+        } else {
+          entries.push(["", validateStringValue(entryPoint, "entry point at index " + i)]);
+        }
       }
     } else {
       for (let key in entryPoints) {
@@ -698,8 +711,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.17.0") {
-        throw new Error(`Cannot start service: Host version "${"0.17.0"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.17.1") {
+        throw new Error(`Cannot start service: Host version "${"0.17.1"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1120,6 +1133,17 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
               };
             }
             resolve(response2);
+          });
+        }),
+        cancel: () => new Promise((resolve) => {
+          if (didDispose)
+            return resolve();
+          const request2 = {
+            command: "cancel",
+            key: buildKey
+          };
+          sendRequest(refs, request2, () => {
+            resolve();
           });
         }),
         dispose: () => new Promise((resolve) => {
@@ -1667,7 +1691,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.17.0";
+var version = "0.17.1";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
