@@ -711,8 +711,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.17.1") {
-        throw new Error(`Cannot start service: Host version "${"0.17.1"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.17.2") {
+        throw new Error(`Cannot start service: Host version "${"0.17.2"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -956,7 +956,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
         if (!result.ok)
           return handleError(result.error, result.pluginName);
         try {
-          buildOrContextContinue(result.requestPlugins, result.runOnEndCallbacks);
+          buildOrContextContinue(result.requestPlugins, result.runOnEndCallbacks, result.scheduleOnDisposeCallbacks);
         } catch (e) {
           handleError(e, "");
         }
@@ -966,11 +966,12 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
     return;
   }
   try {
-    buildOrContextContinue(null, (result, done) => done([], []));
+    buildOrContextContinue(null, (result, done) => done([], []), () => {
+    });
   } catch (e) {
     handleError(e, "");
   }
-  function buildOrContextContinue(requestPlugins, runOnEndCallbacks) {
+  function buildOrContextContinue(requestPlugins, runOnEndCallbacks, scheduleOnDisposeCallbacks) {
     const writeDefault = streamIn.hasFS;
     const {
       entries,
@@ -1047,7 +1048,10 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       if (error)
         return callback(new Error(error), null);
       if (!isContext) {
-        return buildResponseToResult(response, callback);
+        return buildResponseToResult(response, (err, res) => {
+          scheduleOnDisposeCallbacks();
+          return callback(err, res);
+        });
       }
       if (response.errors.length > 0) {
         return callback(failureErrorWithLog("Context failed", response.errors, response.warnings), null);
@@ -1149,12 +1153,14 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
         dispose: () => new Promise((resolve) => {
           if (didDispose)
             return resolve();
+          didDispose = true;
           const request2 = {
             command: "dispose",
             key: buildKey
           };
           sendRequest(refs, request2, () => {
             resolve();
+            scheduleOnDisposeCallbacks();
             refs.unref();
           });
         })
@@ -1169,6 +1175,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
   let onEndCallbacks = [];
   let onResolveCallbacks = {};
   let onLoadCallbacks = {};
+  let onDisposeCallbacks = [];
   let nextCallbackID = 0;
   let i = 0;
   let requestPlugins = [];
@@ -1285,6 +1292,9 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let id = nextCallbackID++;
           onLoadCallbacks[id] = { name, callback, note: registeredNote };
           plugin.onLoad.push({ id, filter: filter.source, namespace: namespace || "" });
+        },
+        onDispose(callback) {
+          onDisposeCallbacks.push(callback);
         },
         esbuild: streamIn.esbuild
       });
@@ -1479,11 +1489,17 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
       })();
     };
   }
+  let scheduleOnDisposeCallbacks = () => {
+    for (const cb of onDisposeCallbacks) {
+      setTimeout(() => cb(), 0);
+    }
+  };
   isSetupDone = true;
   return {
     ok: true,
     requestPlugins,
-    runOnEndCallbacks
+    runOnEndCallbacks,
+    scheduleOnDisposeCallbacks
   };
 };
 function createObjectStash() {
@@ -1691,7 +1707,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.17.1";
+var version = "0.17.2";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));

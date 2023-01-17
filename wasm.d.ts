@@ -296,6 +296,9 @@ export interface PluginBuild {
   onLoad(options: OnLoadOptions, callback: (args: OnLoadArgs) =>
     (OnLoadResult | null | undefined | Promise<OnLoadResult | null | undefined>)): void
 
+  /** Documentation: https://esbuild.github.io/plugins/#on-dispose */
+  onDispose(callback: () => void): void
+
   // This is a full copy of the esbuild library in case you need it
   esbuild: {
     context: typeof context,
@@ -489,7 +492,7 @@ export interface BuildContext<SpecificOptions extends BuildOptions = BuildOption
   rebuild(): Promise<BuildResult<SpecificOptions>>
 
   /** Documentation: https://esbuild.github.io/api/#watch */
-  watch(options?: WatchOptions): void
+  watch(options?: WatchOptions): Promise<void>
 
   /** Documentation: https://esbuild.github.io/api/#serve */
   serve(options?: ServeOptions): Promise<ServeResult>
