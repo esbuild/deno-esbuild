@@ -108,9 +108,9 @@ function decodePacket(bytes) {
 var ByteBuffer = class {
   constructor(buf = new Uint8Array(1024)) {
     this.buf = buf;
+    this.len = 0;
+    this.ptr = 0;
   }
-  len = 0;
-  ptr = 0;
   _write(delta) {
     if (this.len + delta > this.buf.length) {
       let clone = new Uint8Array((this.len + delta) * 2);
@@ -307,6 +307,7 @@ function pushCommonFlags(flags, options, keys) {
   let pure = getFlag(options, keys, "pure", mustBeArray);
   let keepNames = getFlag(options, keys, "keepNames", mustBeBoolean);
   let platform = getFlag(options, keys, "platform", mustBeString);
+  let tsconfigRaw = getFlag(options, keys, "tsconfigRaw", mustBeStringOrObject);
   if (legalComments)
     flags.push(`--legal-comments=${legalComments}`);
   if (sourceRoot !== void 0)
@@ -325,6 +326,8 @@ function pushCommonFlags(flags, options, keys) {
     flags.push(`--global-name=${globalName}`);
   if (platform)
     flags.push(`--platform=${platform}`);
+  if (tsconfigRaw)
+    flags.push(`--tsconfig-raw=${typeof tsconfigRaw === "string" ? tsconfigRaw : JSON.stringify(tsconfigRaw)}`);
   if (minify)
     flags.push("--minify");
   if (minifySyntax)
@@ -598,7 +601,6 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   pushLogFlags(flags, options, keys, isTTY, logLevelDefault);
   pushCommonFlags(flags, options, keys);
   let sourcemap = getFlag(options, keys, "sourcemap", mustBeStringOrBoolean);
-  let tsconfigRaw = getFlag(options, keys, "tsconfigRaw", mustBeStringOrObject);
   let sourcefile = getFlag(options, keys, "sourcefile", mustBeString);
   let loader = getFlag(options, keys, "loader", mustBeString);
   let banner = getFlag(options, keys, "banner", mustBeString);
@@ -607,8 +609,6 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
   if (sourcemap)
     flags.push(`--sourcemap=${sourcemap === true ? "external" : sourcemap}`);
-  if (tsconfigRaw)
-    flags.push(`--tsconfig-raw=${typeof tsconfigRaw === "string" ? tsconfigRaw : JSON.stringify(tsconfigRaw)}`);
   if (sourcefile)
     flags.push(`--sourcefile=${sourcefile}`);
   if (loader)
@@ -711,8 +711,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.17.19") {
-        throw new Error(`Cannot start service: Host version "${"0.17.19"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.18.0") {
+        throw new Error(`Cannot start service: Host version "${"0.18.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1707,7 +1707,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.17.19";
+var version = "0.18.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
