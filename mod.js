@@ -291,6 +291,7 @@ function pushCommonFlags(flags, options, keys) {
   let minifySyntax = getFlag(options, keys, "minifySyntax", mustBeBoolean);
   let minifyWhitespace = getFlag(options, keys, "minifyWhitespace", mustBeBoolean);
   let minifyIdentifiers = getFlag(options, keys, "minifyIdentifiers", mustBeBoolean);
+  let lineLimit = getFlag(options, keys, "lineLimit", mustBeInteger);
   let drop = getFlag(options, keys, "drop", mustBeArray);
   let charset = getFlag(options, keys, "charset", mustBeString);
   let treeShaking = getFlag(options, keys, "treeShaking", mustBeBoolean);
@@ -336,6 +337,8 @@ function pushCommonFlags(flags, options, keys) {
     flags.push("--minify-whitespace");
   if (minifyIdentifiers)
     flags.push("--minify-identifiers");
+  if (lineLimit)
+    flags.push(`--line-limit=${lineLimit}`);
   if (charset)
     flags.push(`--charset=${charset}`);
   if (treeShaking !== void 0)
@@ -711,8 +714,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.18.6") {
-        throw new Error(`Cannot start service: Host version "${"0.18.6"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.18.7") {
+        throw new Error(`Cannot start service: Host version "${"0.18.7"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1707,7 +1710,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.18.6";
+var version = "0.18.7";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
