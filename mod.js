@@ -1835,6 +1835,7 @@ async function install() {
     "aarch64-unknown-linux-gnu": "@esbuild/linux-arm64",
     "x86_64-apple-darwin": "@esbuild/darwin-x64",
     "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
+    "aarch64-linux-android": "@esbuild/android-arm64",
     // These platforms are not supported by Deno
     "x86_64-unknown-freebsd": "@esbuild/freebsd-x64"
   };
