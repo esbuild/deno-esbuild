@@ -293,6 +293,7 @@ function pushCommonFlags(flags, options, keys) {
   let minifyIdentifiers = getFlag(options, keys, "minifyIdentifiers", mustBeBoolean);
   let lineLimit = getFlag(options, keys, "lineLimit", mustBeInteger);
   let drop = getFlag(options, keys, "drop", mustBeArray);
+  let dropLabels = getFlag(options, keys, "dropLabels", mustBeArray);
   let charset = getFlag(options, keys, "charset", mustBeString);
   let treeShaking = getFlag(options, keys, "treeShaking", mustBeBoolean);
   let ignoreAnnotations = getFlag(options, keys, "ignoreAnnotations", mustBeBoolean);
@@ -348,6 +349,8 @@ function pushCommonFlags(flags, options, keys) {
   if (drop)
     for (let what of drop)
       flags.push(`--drop:${validateStringValue(what, "drop")}`);
+  if (dropLabels)
+    flags.push(`--drop-labels=${Array.from(dropLabels).map((what) => validateStringValue(what, "dropLabels")).join(",")}`);
   if (mangleProps)
     flags.push(`--mangle-props=${mangleProps.source}`);
   if (reserveProps)
@@ -706,7 +709,11 @@ function createChannel(streamIn) {
       }
       throw new Error(`Invalid command: ` + request.command);
     } catch (e) {
-      sendResponse(id, { errors: [extractErrorMessageV8(e, streamIn, null, void 0, "")] });
+      const errors = [extractErrorMessageV8(e, streamIn, null, void 0, "")];
+      try {
+        sendResponse(id, { errors });
+      } catch {
+      }
     }
   };
   let isFirstPacket = true;
@@ -714,8 +721,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.18.12") {
-        throw new Error(`Cannot start service: Host version "${"0.18.12"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.18.13") {
+        throw new Error(`Cannot start service: Host version "${"0.18.13"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1710,7 +1717,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.18.12";
+var version = "0.18.13";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1836,7 +1843,8 @@ async function install() {
     "x86_64-apple-darwin": "@esbuild/darwin-x64",
     "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
     // These platforms are not supported by Deno
-    "x86_64-unknown-freebsd": "@esbuild/freebsd-x64"
+    "x86_64-unknown-freebsd": "@esbuild/freebsd-x64",
+    "aarch64-linux-android": "@esbuild/android-arm64"
   };
   if (platformKey in knownWindowsPackages) {
     return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
