@@ -721,8 +721,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.18.14") {
-        throw new Error(`Cannot start service: Host version "${"0.18.14"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.18.15") {
+        throw new Error(`Cannot start service: Host version "${"0.18.15"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1120,6 +1120,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
           const servedir = getFlag(options2, keys, "servedir", mustBeString);
           const keyfile = getFlag(options2, keys, "keyfile", mustBeString);
           const certfile = getFlag(options2, keys, "certfile", mustBeString);
+          const fallback = getFlag(options2, keys, "fallback", mustBeString);
           const onRequest = getFlag(options2, keys, "onRequest", mustBeFunction);
           checkForInvalidFlags(options2, keys, `in serve() call`);
           const request2 = {
@@ -1137,6 +1138,8 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
             request2.keyfile = keyfile;
           if (certfile !== void 0)
             request2.certfile = certfile;
+          if (fallback !== void 0)
+            request2.fallback = fallback;
           sendRequest(refs, request2, (error2, response2) => {
             if (error2)
               return reject(new Error(error2));
@@ -1717,7 +1720,7 @@ function convertOutputFiles({ path, contents }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.18.14";
+var version = "0.18.15";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
