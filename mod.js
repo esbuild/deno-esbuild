@@ -721,8 +721,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.19.0") {
-        throw new Error(`Cannot start service: Host version "${"0.19.0"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.19.1") {
+        throw new Error(`Cannot start service: Host version "${"0.19.1"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1611,7 +1611,7 @@ function parseStackLinesV8(streamIn, lines, ident) {
 }
 function failureErrorWithLog(text, errors, warnings) {
   let limit = 5;
-  let summary = errors.length < 1 ? "" : ` with ${errors.length} error${errors.length < 2 ? "" : "s"}:` + errors.slice(0, limit + 1).map((e, i) => {
+  text += errors.length < 1 ? "" : ` with ${errors.length} error${errors.length < 2 ? "" : "s"}:` + errors.slice(0, limit + 1).map((e, i) => {
     if (i === limit)
       return "\n...";
     if (!e.location)
@@ -1622,9 +1622,19 @@ error: ${e.text}`;
     return `
 ${file}:${line}:${column}: ERROR: ${pluginText}${e.text}`;
   }).join("");
-  let error = new Error(`${text}${summary}`);
-  error.errors = errors;
-  error.warnings = warnings;
+  let error = new Error(text);
+  for (const [key, value] of [["errors", errors], ["warnings", warnings]]) {
+    Object.defineProperty(error, key, {
+      configurable: true,
+      enumerable: true,
+      get: () => value,
+      set: (value2) => Object.defineProperty(error, key, {
+        configurable: true,
+        enumerable: true,
+        value: value2
+      })
+    });
+  }
   return error;
 }
 function replaceDetailsInMessages(messages, stash) {
@@ -1721,7 +1731,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.19.0";
+var version = "0.19.1";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
