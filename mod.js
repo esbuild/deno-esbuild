@@ -722,8 +722,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.19.5") {
-        throw new Error(`Cannot start service: Host version "${"0.19.5"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.19.6") {
+        throw new Error(`Cannot start service: Host version "${"0.19.6"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -866,7 +866,6 @@ function createChannel(streamIn) {
     start(null);
   };
   let formatMessages2 = ({ callName, refs, messages, options, callback }) => {
-    let result = sanitizeMessages(messages, "messages", null, "");
     if (!options)
       throw new Error(`Missing second argument in ${callName}() call`);
     let keys = {};
@@ -880,7 +879,7 @@ function createChannel(streamIn) {
       throw new Error(`Expected "kind" to be "error" or "warning" in ${callName}() call`);
     let request = {
       command: "format-msgs",
-      messages: result,
+      messages: sanitizeMessages(messages, "messages", null, "", terminalWidth),
       isWarning: kind === "warning"
     };
     if (color !== void 0)
@@ -1332,9 +1331,9 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${quote(name)}`);
           if (errors != null)
-            response.errors.push(...sanitizeMessages(errors, "errors", details, name));
+            response.errors.push(...sanitizeMessages(errors, "errors", details, name, void 0));
           if (warnings != null)
-            response.warnings.push(...sanitizeMessages(warnings, "warnings", details, name));
+            response.warnings.push(...sanitizeMessages(warnings, "warnings", details, name, void 0));
         }
       } catch (e) {
         response.errors.push(extractErrorMessageV8(e, streamIn, details, note && note(), name));
@@ -1387,9 +1386,9 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           if (pluginData != null)
             response.pluginData = details.store(pluginData);
           if (errors != null)
-            response.errors = sanitizeMessages(errors, "errors", details, name);
+            response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
           if (warnings != null)
-            response.warnings = sanitizeMessages(warnings, "warnings", details, name);
+            response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
           if (watchFiles != null)
             response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
           if (watchDirs != null)
@@ -1442,9 +1441,9 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           if (loader != null)
             response.loader = loader;
           if (errors != null)
-            response.errors = sanitizeMessages(errors, "errors", details, name);
+            response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
           if (warnings != null)
-            response.warnings = sanitizeMessages(warnings, "warnings", details, name);
+            response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
           if (watchFiles != null)
             response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
           if (watchDirs != null)
@@ -1477,9 +1476,9 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
               let warnings = getFlag(value, keys, "warnings", mustBeArray);
               checkForInvalidFlags(value, keys, `from onEnd() callback in plugin ${quote(name)}`);
               if (errors != null)
-                newErrors = sanitizeMessages(errors, "errors", details, name);
+                newErrors = sanitizeMessages(errors, "errors", details, name, void 0);
               if (warnings != null)
-                newWarnings = sanitizeMessages(warnings, "warnings", details, name);
+                newWarnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
             }
           } catch (e) {
             newErrors = [extractErrorMessageV8(e, streamIn, details, note && note(), name)];
@@ -1644,7 +1643,7 @@ function replaceDetailsInMessages(messages, stash) {
   }
   return messages;
 }
-function sanitizeLocation(location, where) {
+function sanitizeLocation(location, where, terminalWidth) {
   if (location == null)
     return null;
   let keys = {};
@@ -1656,6 +1655,15 @@ function sanitizeLocation(location, where) {
   let lineText = getFlag(location, keys, "lineText", mustBeString);
   let suggestion = getFlag(location, keys, "suggestion", mustBeString);
   checkForInvalidFlags(location, keys, where);
+  if (lineText) {
+    const relevantASCII = lineText.slice(
+      0,
+      (column && column > 0 ? column : 0) + (length && length > 0 ? length : 0) + (terminalWidth && terminalWidth > 0 ? terminalWidth : 80)
+    );
+    if (!/[\x7F-\uFFFF]/.test(relevantASCII) && !/\n/.test(lineText)) {
+      lineText = relevantASCII;
+    }
+  }
   return {
     file: file || "",
     namespace: namespace || "",
@@ -1666,7 +1674,7 @@ function sanitizeLocation(location, where) {
     suggestion: suggestion || ""
   };
 }
-function sanitizeMessages(messages, property, stash, fallbackPluginName) {
+function sanitizeMessages(messages, property, stash, fallbackPluginName, terminalWidth) {
   let messagesClone = [];
   let index = 0;
   for (const message of messages) {
@@ -1688,7 +1696,7 @@ function sanitizeMessages(messages, property, stash, fallbackPluginName) {
         checkForInvalidFlags(note, noteKeys, where);
         notesClone.push({
           text: noteText || "",
-          location: sanitizeLocation(noteLocation, where)
+          location: sanitizeLocation(noteLocation, where, terminalWidth)
         });
       }
     }
@@ -1696,7 +1704,7 @@ function sanitizeMessages(messages, property, stash, fallbackPluginName) {
       id: id || "",
       pluginName: pluginName || fallbackPluginName,
       text: text || "",
-      location: sanitizeLocation(location, where),
+      location: sanitizeLocation(location, where, terminalWidth),
       notes: notesClone,
       detail: stash ? stash.store(detail) : -1
     });
@@ -1732,7 +1740,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.19.5";
+var version = "0.19.6";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
