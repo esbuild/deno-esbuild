@@ -722,8 +722,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.19.6") {
-        throw new Error(`Cannot start service: Host version "${"0.19.6"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.19.7") {
+        throw new Error(`Cannot start service: Host version "${"0.19.7"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1411,7 +1411,8 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           path: request.path,
           namespace: request.namespace,
           suffix: request.suffix,
-          pluginData: details.load(request.pluginData)
+          pluginData: details.load(request.pluginData),
+          with: request.with
         });
         if (result != null) {
           if (typeof result !== "object")
@@ -1740,7 +1741,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.19.6";
+var version = "0.19.7";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
