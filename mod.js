@@ -1868,7 +1868,8 @@ async function install() {
     "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
     // These platforms are not supported by Deno
     "x86_64-unknown-freebsd": "@esbuild/freebsd-x64",
-    "aarch64-linux-android": "@esbuild/android-arm64"
+    "aarch64-linux-android": "@esbuild/android-arm64",
+    "x86_64-alpine-linux-musl": "@esbuild/linux-x64"
   };
   if (platformKey in knownWindowsPackages) {
     return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
