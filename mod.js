@@ -1885,14 +1885,17 @@ var ensureServiceIsRunning = () => {
   if (!longLivedService) {
     longLivedService = (async () => {
       const binPath = await install();
-      const isTTY = Deno.isatty(Deno.stderr.rid);
-      const child = Deno.run({
-        cmd: [binPath, `--service=${version}`],
+      const isTTY = Deno.stderr.isTerminal();
+      const command = new Deno.Command(binPath, {
+        args: [
+          `--service=${version}`
+        ],
         cwd: defaultWD,
         stdin: "piped",
         stdout: "piped",
         stderr: "inherit"
       });
+      const child = command.spawn();
       stopService = () => {
         child.stdin.close();
         child.stdout.close();
@@ -1901,18 +1904,16 @@ var ensureServiceIsRunning = () => {
         longLivedService = void 0;
         stopService = void 0;
       };
-      let writeQueue = [];
+      const writeQueue = [];
       let isQueueLocked = false;
+      const writer = child.stdin.getWriter();
       const startWriteFromQueueWorker = () => {
         if (isQueueLocked || writeQueue.length === 0)
           return;
         isQueueLocked = true;
-        child.stdin.write(writeQueue[0]).then((bytesWritten) => {
+        writer.write(writeQueue[0]).then(() => {
           isQueueLocked = false;
-          if (bytesWritten === writeQueue[0].length)
-            writeQueue.shift();
-          else
-            writeQueue[0] = writeQueue[0].subarray(bytesWritten);
+          writeQueue.shift();
           startWriteFromQueueWorker();
         });
       };
@@ -1925,12 +1926,12 @@ var ensureServiceIsRunning = () => {
         hasFS: true,
         esbuild: mod_exports
       });
-      const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
-      const readMoreStdout = () => child.stdout.read(stdoutBuffer).then((n) => {
-        if (n === null) {
+      const reader = child.stdout.getReader();
+      const readMoreStdout = () => reader.read().then(({done, value}) => {
+        if (done || !value) {
           afterClose(null);
         } else {
-          readFromStdout(stdoutBuffer.subarray(0, n));
+          readFromStdout(value);
           readMoreStdout();
         }
       }).catch((e) => {
@@ -2012,13 +2013,14 @@ var ensureServiceIsRunning = () => {
   return longLivedService;
 };
 if (import.meta.main) {
-  Deno.run({
-    cmd: [await install()].concat(Deno.args),
+  const command = new Deno.Command(await install(), {
+    args: Deno.args,
     cwd: defaultWD,
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit"
-  }).status().then(({ code }) => {
+  });
+  command.output().then(({ code }) => {
     Deno.exit(code);
   });
 }
