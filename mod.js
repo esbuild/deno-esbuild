@@ -722,8 +722,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.19.12") {
-        throw new Error(`Cannot start service: Host version "${"0.19.12"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.20.0") {
+        throw new Error(`Cannot start service: Host version "${"0.20.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -814,9 +814,9 @@ function createChannel(streamIn) {
                 legalComments: void 0
               };
               if ("legalComments" in response)
-                result.legalComments = response?.legalComments;
+                result.legalComments = response == null ? void 0 : response.legalComments;
               if (response.mangleCache)
-                result.mangleCache = response?.mangleCache;
+                result.mangleCache = response == null ? void 0 : response.mangleCache;
               callback(null, result);
             }
           };
@@ -1741,7 +1741,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.19.12";
+var version = "0.20.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1759,9 +1759,9 @@ var formatMessagesSync = () => {
 var analyzeMetafileSync = () => {
   throw new Error(`The "analyzeMetafileSync" API does not work in Deno`);
 };
-var stop = () => {
+var stop = async () => {
   if (stopService)
-    stopService();
+    await stopService();
 };
 var initializeWasCalled = false;
 var initialize = async (options) => {
@@ -1867,8 +1867,9 @@ async function install() {
     "x86_64-apple-darwin": "@esbuild/darwin-x64",
     "x86_64-unknown-linux-gnu": "@esbuild/linux-x64",
     // These platforms are not supported by Deno
+    "aarch64-linux-android": "@esbuild/android-arm64",
     "x86_64-unknown-freebsd": "@esbuild/freebsd-x64",
-    "aarch64-linux-android": "@esbuild/android-arm64"
+    "x86_64-alpine-linux-musl": "@esbuild/linux-x64"
   };
   if (platformKey in knownWindowsPackages) {
     return await installFromNPM(knownWindowsPackages[platformKey], "esbuild.exe");
@@ -1881,56 +1882,102 @@ async function install() {
 var defaultWD = Deno.cwd();
 var longLivedService;
 var stopService;
+var spawnNew = (cmd, { args, stdin, stdout, stderr }) => {
+  const child = new Deno.Command(cmd, {
+    args,
+    cwd: defaultWD,
+    stdin,
+    stdout,
+    stderr
+  }).spawn();
+  const writer = child.stdin.getWriter();
+  const reader = child.stdout.getReader();
+  return {
+    write: (bytes) => writer.write(bytes),
+    read: () => reader.read().then((x) => x.value || null),
+    close: async () => {
+      await writer.close();
+      await reader.cancel();
+      await child.status;
+    },
+    status: () => child.status,
+    unref: () => child.unref(),
+    ref: () => child.ref()
+  };
+};
+var spawnOld = (cmd, { args, stdin, stdout, stderr }) => {
+  const child = Deno.run({
+    cmd: [cmd].concat(args),
+    cwd: defaultWD,
+    stdin,
+    stdout,
+    stderr
+  });
+  const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
+  let writeQueue = [];
+  let isQueueLocked = false;
+  const startWriteFromQueueWorker = () => {
+    if (isQueueLocked || writeQueue.length === 0)
+      return;
+    isQueueLocked = true;
+    child.stdin.write(writeQueue[0]).then((bytesWritten) => {
+      isQueueLocked = false;
+      if (bytesWritten === writeQueue[0].length)
+        writeQueue.shift();
+      else
+        writeQueue[0] = writeQueue[0].subarray(bytesWritten);
+      startWriteFromQueueWorker();
+    });
+  };
+  return {
+    write: (bytes) => {
+      writeQueue.push(bytes);
+      startWriteFromQueueWorker();
+    },
+    read: () => child.stdout.read(stdoutBuffer).then((n) => n === null ? null : stdoutBuffer.subarray(0, n)),
+    close: () => {
+      child.stdin.close();
+      child.stdout.close();
+      child.close();
+    },
+    status: () => child.status(),
+    unref: () => {
+    },
+    ref: () => {
+    }
+  };
+};
+var spawn = Deno.Command ? spawnNew : spawnOld;
 var ensureServiceIsRunning = () => {
   if (!longLivedService) {
     longLivedService = (async () => {
       const binPath = await install();
-      const isTTY = Deno.isatty(Deno.stderr.rid);
-      const child = Deno.run({
-        cmd: [binPath, `--service=${version}`],
-        cwd: defaultWD,
+      const isTTY = Deno.stderr.isTerminal ? Deno.stderr.isTerminal() : Deno.isatty(Deno.stderr.rid);
+      const child = spawn(binPath, {
+        args: [`--service=${version}`],
         stdin: "piped",
         stdout: "piped",
         stderr: "inherit"
       });
-      stopService = () => {
-        child.stdin.close();
-        child.stdout.close();
-        child.close();
+      stopService = async () => {
+        await child.close();
         initializeWasCalled = false;
         longLivedService = void 0;
         stopService = void 0;
       };
-      let writeQueue = [];
-      let isQueueLocked = false;
-      const startWriteFromQueueWorker = () => {
-        if (isQueueLocked || writeQueue.length === 0)
-          return;
-        isQueueLocked = true;
-        child.stdin.write(writeQueue[0]).then((bytesWritten) => {
-          isQueueLocked = false;
-          if (bytesWritten === writeQueue[0].length)
-            writeQueue.shift();
-          else
-            writeQueue[0] = writeQueue[0].subarray(bytesWritten);
-          startWriteFromQueueWorker();
-        });
-      };
       const { readFromStdout, afterClose, service } = createChannel({
         writeToStdin(bytes) {
-          writeQueue.push(bytes);
-          startWriteFromQueueWorker();
+          child.write(bytes);
         },
         isSync: false,
         hasFS: true,
         esbuild: mod_exports
       });
-      const stdoutBuffer = new Uint8Array(4 * 1024 * 1024);
-      const readMoreStdout = () => child.stdout.read(stdoutBuffer).then((n) => {
-        if (n === null) {
+      const readMoreStdout = () => child.read().then((buffer) => {
+        if (buffer === null) {
           afterClose(null);
         } else {
-          readFromStdout(stdoutBuffer.subarray(0, n));
+          readFromStdout(buffer);
           readMoreStdout();
         }
       }).catch((e) => {
@@ -1941,11 +1988,23 @@ var ensureServiceIsRunning = () => {
         }
       });
       readMoreStdout();
+      let refCount = 0;
+      child.unref();
+      const refs = {
+        ref() {
+          if (++refCount === 1)
+            child.ref();
+        },
+        unref() {
+          if (--refCount === 0)
+            child.unref();
+        }
+      };
       return {
         build: (options) => new Promise((resolve, reject) => {
           service.buildOrContext({
             callName: "build",
-            refs: null,
+            refs,
             options,
             isTTY,
             defaultWD,
@@ -1954,7 +2013,7 @@ var ensureServiceIsRunning = () => {
         }),
         context: (options) => new Promise((resolve, reject) => service.buildOrContext({
           callName: "context",
-          refs: null,
+          refs,
           options,
           isTTY,
           defaultWD,
@@ -1962,7 +2021,7 @@ var ensureServiceIsRunning = () => {
         })),
         transform: (input, options) => new Promise((resolve, reject) => service.transform({
           callName: "transform",
-          refs: null,
+          refs,
           input,
           options: options || {},
           isTTY,
@@ -1994,14 +2053,14 @@ var ensureServiceIsRunning = () => {
         })),
         formatMessages: (messages, options) => new Promise((resolve, reject) => service.formatMessages({
           callName: "formatMessages",
-          refs: null,
+          refs,
           messages,
           options,
           callback: (err, res) => err ? reject(err) : resolve(res)
         })),
         analyzeMetafile: (metafile, options) => new Promise((resolve, reject) => service.analyzeMetafile({
           callName: "analyzeMetafile",
-          refs: null,
+          refs,
           metafile: typeof metafile === "string" ? metafile : JSON.stringify(metafile),
           options,
           callback: (err, res) => err ? reject(err) : resolve(res)
@@ -2012,9 +2071,8 @@ var ensureServiceIsRunning = () => {
   return longLivedService;
 };
 if (import.meta.main) {
-  Deno.run({
-    cmd: [await install()].concat(Deno.args),
-    cwd: defaultWD,
+  spawn(await install(), {
+    args: Deno.args,
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit"
