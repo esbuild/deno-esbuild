@@ -722,8 +722,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.20.1") {
-        throw new Error(`Cannot start service: Host version "${"0.20.1"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.20.2") {
+        throw new Error(`Cannot start service: Host version "${"0.20.2"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1741,7 +1741,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.20.1";
+var version = "0.20.2";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1900,9 +1900,7 @@ var spawnNew = (cmd, { args, stdin, stdout, stderr }) => {
       await reader.cancel();
       await child.status;
     },
-    status: () => child.status,
-    unref: () => child.unref(),
-    ref: () => child.ref()
+    status: () => child.status
   };
 };
 var spawnOld = (cmd, { args, stdin, stdout, stderr }) => {
@@ -1940,11 +1938,7 @@ var spawnOld = (cmd, { args, stdin, stdout, stderr }) => {
       child.stdout.close();
       child.close();
     },
-    status: () => child.status(),
-    unref: () => {
-    },
-    ref: () => {
-    }
+    status: () => child.status()
   };
 };
 var spawn = Deno.Command ? spawnNew : spawnOld;
@@ -1988,23 +1982,11 @@ var ensureServiceIsRunning = () => {
         }
       });
       readMoreStdout();
-      let refCount = 0;
-      child.unref();
-      const refs = {
-        ref() {
-          if (++refCount === 1)
-            child.ref();
-        },
-        unref() {
-          if (--refCount === 0)
-            child.unref();
-        }
-      };
       return {
         build: (options) => new Promise((resolve, reject) => {
           service.buildOrContext({
             callName: "build",
-            refs,
+            refs: null,
             options,
             isTTY,
             defaultWD,
@@ -2013,7 +1995,7 @@ var ensureServiceIsRunning = () => {
         }),
         context: (options) => new Promise((resolve, reject) => service.buildOrContext({
           callName: "context",
-          refs,
+          refs: null,
           options,
           isTTY,
           defaultWD,
@@ -2021,7 +2003,7 @@ var ensureServiceIsRunning = () => {
         })),
         transform: (input, options) => new Promise((resolve, reject) => service.transform({
           callName: "transform",
-          refs,
+          refs: null,
           input,
           options: options || {},
           isTTY,
@@ -2053,14 +2035,14 @@ var ensureServiceIsRunning = () => {
         })),
         formatMessages: (messages, options) => new Promise((resolve, reject) => service.formatMessages({
           callName: "formatMessages",
-          refs,
+          refs: null,
           messages,
           options,
           callback: (err, res) => err ? reject(err) : resolve(res)
         })),
         analyzeMetafile: (metafile, options) => new Promise((resolve, reject) => service.analyzeMetafile({
           callName: "analyzeMetafile",
-          refs,
+          refs: null,
           metafile: typeof metafile === "string" ? metafile : JSON.stringify(metafile),
           options,
           callback: (err, res) => err ? reject(err) : resolve(res)
