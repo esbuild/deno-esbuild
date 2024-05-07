@@ -196,8 +196,7 @@ var buildLogLevelDefault = "warning";
 var transformLogLevelDefault = "silent";
 function validateTarget(target) {
   validateStringValue(target, "target");
-  if (target.indexOf(",") >= 0)
-    throw new Error(`Invalid target: ${target}`);
+  if (target.indexOf(",") >= 0) throw new Error(`Invalid target: ${target}`);
   return target;
 }
 var canBeAnything = () => null;
@@ -219,11 +218,9 @@ var mustBeStringOrURL = (value) => typeof value === "string" || value instanceof
 function getFlag(object, keys, key, mustBeFn) {
   let value = object[key];
   keys[key + ""] = true;
-  if (value === void 0)
-    return void 0;
+  if (value === void 0) return void 0;
   let mustBe = mustBeFn(value);
-  if (mustBe !== null)
-    throw new Error(`${quote(key)} must be ${mustBe}`);
+  if (mustBe !== null) throw new Error(`${quote(key)} must be ${mustBe}`);
   return value;
 }
 function checkForInvalidFlags(object, keys, where) {
@@ -264,10 +261,8 @@ function pushLogFlags(flags, options, keys, isTTY, logLevelDefault) {
   let color = getFlag(options, keys, "color", mustBeBoolean);
   let logLevel = getFlag(options, keys, "logLevel", mustBeString);
   let logLimit = getFlag(options, keys, "logLimit", mustBeInteger);
-  if (color !== void 0)
-    flags.push(`--color=${color}`);
-  else if (isTTY)
-    flags.push(`--color=true`);
+  if (color !== void 0) flags.push(`--color=${color}`);
+  else if (isTTY) flags.push(`--color=true`);
   flags.push(`--log-level=${logLevel || logLevelDefault}`);
   flags.push(`--log-limit=${logLimit || 0}`);
 }
@@ -310,94 +305,58 @@ function pushCommonFlags(flags, options, keys) {
   let keepNames = getFlag(options, keys, "keepNames", mustBeBoolean);
   let platform = getFlag(options, keys, "platform", mustBeString);
   let tsconfigRaw = getFlag(options, keys, "tsconfigRaw", mustBeStringOrObject);
-  if (legalComments)
-    flags.push(`--legal-comments=${legalComments}`);
-  if (sourceRoot !== void 0)
-    flags.push(`--source-root=${sourceRoot}`);
-  if (sourcesContent !== void 0)
-    flags.push(`--sources-content=${sourcesContent}`);
+  if (legalComments) flags.push(`--legal-comments=${legalComments}`);
+  if (sourceRoot !== void 0) flags.push(`--source-root=${sourceRoot}`);
+  if (sourcesContent !== void 0) flags.push(`--sources-content=${sourcesContent}`);
   if (target) {
-    if (Array.isArray(target))
-      flags.push(`--target=${Array.from(target).map(validateTarget).join(",")}`);
-    else
-      flags.push(`--target=${validateTarget(target)}`);
+    if (Array.isArray(target)) flags.push(`--target=${Array.from(target).map(validateTarget).join(",")}`);
+    else flags.push(`--target=${validateTarget(target)}`);
   }
-  if (format)
-    flags.push(`--format=${format}`);
-  if (globalName)
-    flags.push(`--global-name=${globalName}`);
-  if (platform)
-    flags.push(`--platform=${platform}`);
-  if (tsconfigRaw)
-    flags.push(`--tsconfig-raw=${typeof tsconfigRaw === "string" ? tsconfigRaw : JSON.stringify(tsconfigRaw)}`);
-  if (minify)
-    flags.push("--minify");
-  if (minifySyntax)
-    flags.push("--minify-syntax");
-  if (minifyWhitespace)
-    flags.push("--minify-whitespace");
-  if (minifyIdentifiers)
-    flags.push("--minify-identifiers");
-  if (lineLimit)
-    flags.push(`--line-limit=${lineLimit}`);
-  if (charset)
-    flags.push(`--charset=${charset}`);
-  if (treeShaking !== void 0)
-    flags.push(`--tree-shaking=${treeShaking}`);
-  if (ignoreAnnotations)
-    flags.push(`--ignore-annotations`);
-  if (drop)
-    for (let what of drop)
-      flags.push(`--drop:${validateStringValue(what, "drop")}`);
-  if (dropLabels)
-    flags.push(`--drop-labels=${Array.from(dropLabels).map((what) => validateStringValue(what, "dropLabels")).join(",")}`);
-  if (mangleProps)
-    flags.push(`--mangle-props=${mangleProps.source}`);
-  if (reserveProps)
-    flags.push(`--reserve-props=${reserveProps.source}`);
-  if (mangleQuoted !== void 0)
-    flags.push(`--mangle-quoted=${mangleQuoted}`);
-  if (jsx)
-    flags.push(`--jsx=${jsx}`);
-  if (jsxFactory)
-    flags.push(`--jsx-factory=${jsxFactory}`);
-  if (jsxFragment)
-    flags.push(`--jsx-fragment=${jsxFragment}`);
-  if (jsxImportSource)
-    flags.push(`--jsx-import-source=${jsxImportSource}`);
-  if (jsxDev)
-    flags.push(`--jsx-dev`);
-  if (jsxSideEffects)
-    flags.push(`--jsx-side-effects`);
+  if (format) flags.push(`--format=${format}`);
+  if (globalName) flags.push(`--global-name=${globalName}`);
+  if (platform) flags.push(`--platform=${platform}`);
+  if (tsconfigRaw) flags.push(`--tsconfig-raw=${typeof tsconfigRaw === "string" ? tsconfigRaw : JSON.stringify(tsconfigRaw)}`);
+  if (minify) flags.push("--minify");
+  if (minifySyntax) flags.push("--minify-syntax");
+  if (minifyWhitespace) flags.push("--minify-whitespace");
+  if (minifyIdentifiers) flags.push("--minify-identifiers");
+  if (lineLimit) flags.push(`--line-limit=${lineLimit}`);
+  if (charset) flags.push(`--charset=${charset}`);
+  if (treeShaking !== void 0) flags.push(`--tree-shaking=${treeShaking}`);
+  if (ignoreAnnotations) flags.push(`--ignore-annotations`);
+  if (drop) for (let what of drop) flags.push(`--drop:${validateStringValue(what, "drop")}`);
+  if (dropLabels) flags.push(`--drop-labels=${Array.from(dropLabels).map((what) => validateStringValue(what, "dropLabels")).join(",")}`);
+  if (mangleProps) flags.push(`--mangle-props=${mangleProps.source}`);
+  if (reserveProps) flags.push(`--reserve-props=${reserveProps.source}`);
+  if (mangleQuoted !== void 0) flags.push(`--mangle-quoted=${mangleQuoted}`);
+  if (jsx) flags.push(`--jsx=${jsx}`);
+  if (jsxFactory) flags.push(`--jsx-factory=${jsxFactory}`);
+  if (jsxFragment) flags.push(`--jsx-fragment=${jsxFragment}`);
+  if (jsxImportSource) flags.push(`--jsx-import-source=${jsxImportSource}`);
+  if (jsxDev) flags.push(`--jsx-dev`);
+  if (jsxSideEffects) flags.push(`--jsx-side-effects`);
   if (define) {
     for (let key in define) {
-      if (key.indexOf("=") >= 0)
-        throw new Error(`Invalid define: ${key}`);
+      if (key.indexOf("=") >= 0) throw new Error(`Invalid define: ${key}`);
       flags.push(`--define:${key}=${validateStringValue(define[key], "define", key)}`);
     }
   }
   if (logOverride) {
     for (let key in logOverride) {
-      if (key.indexOf("=") >= 0)
-        throw new Error(`Invalid log override: ${key}`);
+      if (key.indexOf("=") >= 0) throw new Error(`Invalid log override: ${key}`);
       flags.push(`--log-override:${key}=${validateStringValue(logOverride[key], "log override", key)}`);
     }
   }
   if (supported) {
     for (let key in supported) {
-      if (key.indexOf("=") >= 0)
-        throw new Error(`Invalid supported: ${key}`);
+      if (key.indexOf("=") >= 0) throw new Error(`Invalid supported: ${key}`);
       const value = supported[key];
-      if (typeof value !== "boolean")
-        throw new Error(`Expected value for supported ${quote(key)} to be a boolean, got ${typeof value} instead`);
+      if (typeof value !== "boolean") throw new Error(`Expected value for supported ${quote(key)} to be a boolean, got ${typeof value} instead`);
       flags.push(`--supported:${key}=${value}`);
     }
   }
-  if (pure)
-    for (let fn of pure)
-      flags.push(`--pure:${validateStringValue(fn, "pure")}`);
-  if (keepNames)
-    flags.push(`--keep-names`);
+  if (pure) for (let fn of pure) flags.push(`--pure:${validateStringValue(fn, "pure")}`);
+  if (keepNames) flags.push(`--keep-names`);
 }
 function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDefault) {
   let flags = [];
@@ -440,52 +399,35 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
   let mangleCache = getFlag(options, keys, "mangleCache", mustBeObject);
   keys.plugins = true;
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
-  if (sourcemap)
-    flags.push(`--sourcemap${sourcemap === true ? "" : `=${sourcemap}`}`);
-  if (bundle)
-    flags.push("--bundle");
-  if (allowOverwrite)
-    flags.push("--allow-overwrite");
-  if (splitting)
-    flags.push("--splitting");
-  if (preserveSymlinks)
-    flags.push("--preserve-symlinks");
-  if (metafile)
-    flags.push(`--metafile`);
-  if (outfile)
-    flags.push(`--outfile=${outfile}`);
-  if (outdir)
-    flags.push(`--outdir=${outdir}`);
-  if (outbase)
-    flags.push(`--outbase=${outbase}`);
-  if (tsconfig)
-    flags.push(`--tsconfig=${tsconfig}`);
-  if (packages)
-    flags.push(`--packages=${packages}`);
+  if (sourcemap) flags.push(`--sourcemap${sourcemap === true ? "" : `=${sourcemap}`}`);
+  if (bundle) flags.push("--bundle");
+  if (allowOverwrite) flags.push("--allow-overwrite");
+  if (splitting) flags.push("--splitting");
+  if (preserveSymlinks) flags.push("--preserve-symlinks");
+  if (metafile) flags.push(`--metafile`);
+  if (outfile) flags.push(`--outfile=${outfile}`);
+  if (outdir) flags.push(`--outdir=${outdir}`);
+  if (outbase) flags.push(`--outbase=${outbase}`);
+  if (tsconfig) flags.push(`--tsconfig=${tsconfig}`);
+  if (packages) flags.push(`--packages=${packages}`);
   if (resolveExtensions) {
     let values = [];
     for (let value of resolveExtensions) {
       validateStringValue(value, "resolve extension");
-      if (value.indexOf(",") >= 0)
-        throw new Error(`Invalid resolve extension: ${value}`);
+      if (value.indexOf(",") >= 0) throw new Error(`Invalid resolve extension: ${value}`);
       values.push(value);
     }
     flags.push(`--resolve-extensions=${values.join(",")}`);
   }
-  if (publicPath)
-    flags.push(`--public-path=${publicPath}`);
-  if (entryNames)
-    flags.push(`--entry-names=${entryNames}`);
-  if (chunkNames)
-    flags.push(`--chunk-names=${chunkNames}`);
-  if (assetNames)
-    flags.push(`--asset-names=${assetNames}`);
+  if (publicPath) flags.push(`--public-path=${publicPath}`);
+  if (entryNames) flags.push(`--entry-names=${entryNames}`);
+  if (chunkNames) flags.push(`--chunk-names=${chunkNames}`);
+  if (assetNames) flags.push(`--asset-names=${assetNames}`);
   if (mainFields) {
     let values = [];
     for (let value of mainFields) {
       validateStringValue(value, "main field");
-      if (value.indexOf(",") >= 0)
-        throw new Error(`Invalid main field: ${value}`);
+      if (value.indexOf(",") >= 0) throw new Error(`Invalid main field: ${value}`);
       values.push(value);
     }
     flags.push(`--main-fields=${values.join(",")}`);
@@ -494,50 +436,40 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     let values = [];
     for (let value of conditions) {
       validateStringValue(value, "condition");
-      if (value.indexOf(",") >= 0)
-        throw new Error(`Invalid condition: ${value}`);
+      if (value.indexOf(",") >= 0) throw new Error(`Invalid condition: ${value}`);
       values.push(value);
     }
     flags.push(`--conditions=${values.join(",")}`);
   }
-  if (external)
-    for (let name of external)
-      flags.push(`--external:${validateStringValue(name, "external")}`);
+  if (external) for (let name of external) flags.push(`--external:${validateStringValue(name, "external")}`);
   if (alias) {
     for (let old in alias) {
-      if (old.indexOf("=") >= 0)
-        throw new Error(`Invalid package name in alias: ${old}`);
+      if (old.indexOf("=") >= 0) throw new Error(`Invalid package name in alias: ${old}`);
       flags.push(`--alias:${old}=${validateStringValue(alias[old], "alias", old)}`);
     }
   }
   if (banner) {
     for (let type in banner) {
-      if (type.indexOf("=") >= 0)
-        throw new Error(`Invalid banner file type: ${type}`);
+      if (type.indexOf("=") >= 0) throw new Error(`Invalid banner file type: ${type}`);
       flags.push(`--banner:${type}=${validateStringValue(banner[type], "banner", type)}`);
     }
   }
   if (footer) {
     for (let type in footer) {
-      if (type.indexOf("=") >= 0)
-        throw new Error(`Invalid footer file type: ${type}`);
+      if (type.indexOf("=") >= 0) throw new Error(`Invalid footer file type: ${type}`);
       flags.push(`--footer:${type}=${validateStringValue(footer[type], "footer", type)}`);
     }
   }
-  if (inject)
-    for (let path of inject)
-      flags.push(`--inject:${validateStringValue(path, "inject")}`);
+  if (inject) for (let path of inject) flags.push(`--inject:${validateStringValue(path, "inject")}`);
   if (loader) {
     for (let ext in loader) {
-      if (ext.indexOf("=") >= 0)
-        throw new Error(`Invalid loader extension: ${ext}`);
+      if (ext.indexOf("=") >= 0) throw new Error(`Invalid loader extension: ${ext}`);
       flags.push(`--loader:${ext}=${validateStringValue(loader[ext], "loader", ext)}`);
     }
   }
   if (outExtension) {
     for (let ext in outExtension) {
-      if (ext.indexOf("=") >= 0)
-        throw new Error(`Invalid out extension: ${ext}`);
+      if (ext.indexOf("=") >= 0) throw new Error(`Invalid out extension: ${ext}`);
       flags.push(`--out-extension:${ext}=${validateStringValue(outExtension[ext], "out extension", ext)}`);
     }
   }
@@ -550,10 +482,8 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
           let input = getFlag(entryPoint, entryPointKeys, "in", mustBeString);
           let output = getFlag(entryPoint, entryPointKeys, "out", mustBeString);
           checkForInvalidFlags(entryPoint, entryPointKeys, "in entry point at index " + i);
-          if (input === void 0)
-            throw new Error('Missing property "in" for entry point at index ' + i);
-          if (output === void 0)
-            throw new Error('Missing property "out" for entry point at index ' + i);
+          if (input === void 0) throw new Error('Missing property "in" for entry point at index ' + i);
+          if (output === void 0) throw new Error('Missing property "out" for entry point at index ' + i);
           entries.push([output, input]);
         } else {
           entries.push(["", validateStringValue(entryPoint, "entry point at index " + i)]);
@@ -572,16 +502,11 @@ function flagsForBuildOptions(callName, options, isTTY, logLevelDefault, writeDe
     let sourcefile = getFlag(stdin, stdinKeys, "sourcefile", mustBeString);
     let loader2 = getFlag(stdin, stdinKeys, "loader", mustBeString);
     checkForInvalidFlags(stdin, stdinKeys, 'in "stdin" object');
-    if (sourcefile)
-      flags.push(`--sourcefile=${sourcefile}`);
-    if (loader2)
-      flags.push(`--loader=${loader2}`);
-    if (resolveDir)
-      stdinResolveDir = resolveDir;
-    if (typeof contents === "string")
-      stdinContents = encodeUTF8(contents);
-    else if (contents instanceof Uint8Array)
-      stdinContents = contents;
+    if (sourcefile) flags.push(`--sourcefile=${sourcefile}`);
+    if (loader2) flags.push(`--loader=${loader2}`);
+    if (resolveDir) stdinResolveDir = resolveDir;
+    if (typeof contents === "string") stdinContents = encodeUTF8(contents);
+    else if (contents instanceof Uint8Array) stdinContents = contents;
   }
   let nodePaths = [];
   if (nodePathsInput) {
@@ -613,16 +538,11 @@ function flagsForTransformOptions(callName, options, isTTY, logLevelDefault) {
   let footer = getFlag(options, keys, "footer", mustBeString);
   let mangleCache = getFlag(options, keys, "mangleCache", mustBeObject);
   checkForInvalidFlags(options, keys, `in ${callName}() call`);
-  if (sourcemap)
-    flags.push(`--sourcemap=${sourcemap === true ? "external" : sourcemap}`);
-  if (sourcefile)
-    flags.push(`--sourcefile=${sourcefile}`);
-  if (loader)
-    flags.push(`--loader=${loader}`);
-  if (banner)
-    flags.push(`--banner=${banner}`);
-  if (footer)
-    flags.push(`--footer=${footer}`);
+  if (sourcemap) flags.push(`--sourcemap=${sourcemap === true ? "external" : sourcemap}`);
+  if (sourcefile) flags.push(`--sourcefile=${sourcefile}`);
+  if (loader) flags.push(`--loader=${loader}`);
+  if (banner) flags.push(`--banner=${banner}`);
+  if (footer) flags.push(`--footer=${footer}`);
   return {
     flags,
     mangleCache: validateMangleCache(mangleCache)
@@ -662,8 +582,7 @@ function createChannel(streamIn) {
   };
   let afterClose = (error) => {
     closeData.didClose = true;
-    if (error)
-      closeData.reason = ": " + (error.message || error);
+    if (error) closeData.reason = ": " + (error.message || error);
     const text = "The service was stopped" + closeData.reason;
     for (let id in responseCallbacks) {
       responseCallbacks[id](text, null);
@@ -671,24 +590,20 @@ function createChannel(streamIn) {
     responseCallbacks = {};
   };
   let sendRequest = (refs, value, callback) => {
-    if (closeData.didClose)
-      return callback("The service is no longer running" + closeData.reason, null);
+    if (closeData.didClose) return callback("The service is no longer running" + closeData.reason, null);
     let id = nextRequestID++;
     responseCallbacks[id] = (error, response) => {
       try {
         callback(error, response);
       } finally {
-        if (refs)
-          refs.unref();
+        if (refs) refs.unref();
       }
     };
-    if (refs)
-      refs.ref();
+    if (refs) refs.ref();
     streamIn.writeToStdin(encodePacket({ id, isRequest: true, value }));
   };
   let sendResponse = (id, value) => {
-    if (closeData.didClose)
-      throw new Error("The service is no longer running" + closeData.reason);
+    if (closeData.didClose) throw new Error("The service is no longer running" + closeData.reason);
     streamIn.writeToStdin(encodePacket({ id, isRequest: false, value }));
   };
   let handleRequest = async (id, request) => {
@@ -722,8 +637,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.20.2") {
-        throw new Error(`Cannot start service: Host version "${"0.20.2"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.21.0") {
+        throw new Error(`Cannot start service: Host version "${"0.21.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -733,10 +648,8 @@ function createChannel(streamIn) {
     } else {
       let callback = responseCallbacks[packet.id];
       delete responseCallbacks[packet.id];
-      if (packet.value.error)
-        callback(packet.value.error, {});
-      else
-        callback(null, packet.value);
+      if (packet.value.error) callback(packet.value.error, {});
+      else callback(null, packet.value);
     }
   };
   let buildOrContext = ({ callName, refs, options, isTTY, defaultWD, callback }) => {
@@ -746,15 +659,13 @@ function createChannel(streamIn) {
     const buildRefs = {
       ref() {
         if (++refCount === 1) {
-          if (refs)
-            refs.ref();
+          if (refs) refs.ref();
         }
       },
       unref() {
         if (--refCount === 0) {
           delete requestCallbacksByKey[buildKey];
-          if (refs)
-            refs.unref();
+          if (refs) refs.unref();
         }
       }
     };
@@ -796,11 +707,9 @@ function createChannel(streamIn) {
           inputFS: inputPath !== null,
           input: inputPath !== null ? encodeUTF8(inputPath) : typeof input === "string" ? encodeUTF8(input) : input
         };
-        if (mangleCache)
-          request.mangleCache = mangleCache;
+        if (mangleCache) request.mangleCache = mangleCache;
         sendRequest(refs, request, (error, response) => {
-          if (error)
-            return callback(new Error(error), null);
+          if (error) return callback(new Error(error), null);
           let errors = replaceDetailsInMessages(response.errors, details);
           let warnings = replaceDetailsInMessages(response.warnings, details);
           let outstanding = 1;
@@ -813,15 +722,12 @@ function createChannel(streamIn) {
                 mangleCache: void 0,
                 legalComments: void 0
               };
-              if ("legalComments" in response)
-                result.legalComments = response == null ? void 0 : response.legalComments;
-              if (response.mangleCache)
-                result.mangleCache = response == null ? void 0 : response.mangleCache;
+              if ("legalComments" in response) result.legalComments = response == null ? void 0 : response.legalComments;
+              if (response.mangleCache) result.mangleCache = response == null ? void 0 : response.mangleCache;
               callback(null, result);
             }
           };
-          if (errors.length > 0)
-            return callback(failureErrorWithLog("Transform failed", errors, warnings), null);
+          if (errors.length > 0) return callback(failureErrorWithLog("Transform failed", errors, warnings), null);
           if (response.codeFS) {
             outstanding++;
             fs.readFile(response.code, (err, contents) => {
@@ -866,35 +772,28 @@ function createChannel(streamIn) {
     start(null);
   };
   let formatMessages2 = ({ callName, refs, messages, options, callback }) => {
-    if (!options)
-      throw new Error(`Missing second argument in ${callName}() call`);
+    if (!options) throw new Error(`Missing second argument in ${callName}() call`);
     let keys = {};
     let kind = getFlag(options, keys, "kind", mustBeString);
     let color = getFlag(options, keys, "color", mustBeBoolean);
     let terminalWidth = getFlag(options, keys, "terminalWidth", mustBeInteger);
     checkForInvalidFlags(options, keys, `in ${callName}() call`);
-    if (kind === void 0)
-      throw new Error(`Missing "kind" in ${callName}() call`);
-    if (kind !== "error" && kind !== "warning")
-      throw new Error(`Expected "kind" to be "error" or "warning" in ${callName}() call`);
+    if (kind === void 0) throw new Error(`Missing "kind" in ${callName}() call`);
+    if (kind !== "error" && kind !== "warning") throw new Error(`Expected "kind" to be "error" or "warning" in ${callName}() call`);
     let request = {
       command: "format-msgs",
       messages: sanitizeMessages(messages, "messages", null, "", terminalWidth),
       isWarning: kind === "warning"
     };
-    if (color !== void 0)
-      request.color = color;
-    if (terminalWidth !== void 0)
-      request.terminalWidth = terminalWidth;
+    if (color !== void 0) request.color = color;
+    if (terminalWidth !== void 0) request.terminalWidth = terminalWidth;
     sendRequest(refs, request, (error, response) => {
-      if (error)
-        return callback(new Error(error), null);
+      if (error) return callback(new Error(error), null);
       callback(null, response.messages);
     });
   };
   let analyzeMetafile2 = ({ callName, refs, metafile, options, callback }) => {
-    if (options === void 0)
-      options = {};
+    if (options === void 0) options = {};
     let keys = {};
     let color = getFlag(options, keys, "color", mustBeBoolean);
     let verbose = getFlag(options, keys, "verbose", mustBeBoolean);
@@ -903,13 +802,10 @@ function createChannel(streamIn) {
       command: "analyze-metafile",
       metafile
     };
-    if (color !== void 0)
-      request.color = color;
-    if (verbose !== void 0)
-      request.verbose = verbose;
+    if (color !== void 0) request.color = color;
+    if (verbose !== void 0) request.verbose = verbose;
     sendRequest(refs, request, (error, response) => {
-      if (error)
-        return callback(new Error(error), null);
+      if (error) return callback(new Error(error), null);
       callback(null, response.result);
     });
   };
@@ -943,14 +839,12 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
   if (typeof options === "object") {
     const value = options.plugins;
     if (value !== void 0) {
-      if (!Array.isArray(value))
-        return handleError(new Error(`"plugins" must be an array`), "");
+      if (!Array.isArray(value)) return handleError(new Error(`"plugins" must be an array`), "");
       plugins = value;
     }
   }
   if (plugins && plugins.length > 0) {
-    if (streamIn.isSync)
-      return handleError(new Error("Cannot use plugins in synchronous API calls"), "");
+    if (streamIn.isSync) return handleError(new Error("Cannot use plugins in synchronous API calls"), "");
     handlePlugins(
       buildKey,
       sendRequest,
@@ -963,8 +857,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       details
     ).then(
       (result) => {
-        if (!result.ok)
-          return handleError(result.error, result.pluginName);
+        if (!result.ok) return handleError(result.error, result.pluginName);
         try {
           buildOrContextContinue(result.requestPlugins, result.runOnEndCallbacks, result.scheduleOnDisposeCallbacks);
         } catch (e) {
@@ -993,8 +886,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       nodePaths,
       mangleCache
     } = flagsForBuildOptions(callName, options, isTTY, buildLogLevelDefault, writeDefault);
-    if (write && !streamIn.hasFS)
-      throw new Error(`The "write" option is unavailable in this environment`);
+    if (write && !streamIn.hasFS) throw new Error(`The "write" option is unavailable in this environment`);
     const request = {
       command: "build",
       key: buildKey,
@@ -1007,10 +899,8 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       nodePaths,
       context: isContext
     };
-    if (requestPlugins)
-      request.plugins = requestPlugins;
-    if (mangleCache)
-      request.mangleCache = mangleCache;
+    if (requestPlugins) request.plugins = requestPlugins;
+    if (mangleCache) request.mangleCache = mangleCache;
     const buildResponseToResult = (response, callback2) => {
       const result = {
         errors: replaceDetailsInMessages(response.errors, details),
@@ -1021,14 +911,10 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       };
       const originalErrors = result.errors.slice();
       const originalWarnings = result.warnings.slice();
-      if (response.outputFiles)
-        result.outputFiles = response.outputFiles.map(convertOutputFiles);
-      if (response.metafile)
-        result.metafile = JSON.parse(response.metafile);
-      if (response.mangleCache)
-        result.mangleCache = response.mangleCache;
-      if (response.writeToStdout !== void 0)
-        console.log(decodeUTF8(response.writeToStdout).replace(/\n$/, ""));
+      if (response.outputFiles) result.outputFiles = response.outputFiles.map(convertOutputFiles);
+      if (response.metafile) result.metafile = JSON.parse(response.metafile);
+      if (response.mangleCache) result.mangleCache = response.mangleCache;
+      if (response.writeToStdout !== void 0) console.log(decodeUTF8(response.writeToStdout).replace(/\n$/, ""));
       runOnEndCallbacks(result, (onEndErrors, onEndWarnings) => {
         if (originalErrors.length > 0 || onEndErrors.length > 0) {
           const error = failureErrorWithLog("Build failed", originalErrors.concat(onEndErrors), originalWarnings.concat(onEndWarnings));
@@ -1046,8 +932,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
             errors: onEndErrors,
             warnings: onEndWarnings
           };
-          if (provideLatestResult)
-            provideLatestResult(err, result);
+          if (provideLatestResult) provideLatestResult(err, result);
           latestResultPromise = void 0;
           provideLatestResult = void 0;
           sendResponse(id, response);
@@ -1055,8 +940,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
         });
       });
     sendRequest(refs, request, (error, response) => {
-      if (error)
-        return callback(new Error(error), null);
+      if (error) return callback(new Error(error), null);
       if (!isContext) {
         return buildResponseToResult(response, (err, res) => {
           scheduleOnDisposeCallbacks();
@@ -1069,35 +953,32 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       let didDispose = false;
       const result = {
         rebuild: () => {
-          if (!latestResultPromise)
-            latestResultPromise = new Promise((resolve, reject) => {
-              let settlePromise;
-              provideLatestResult = (err, result2) => {
-                if (!settlePromise)
-                  settlePromise = () => err ? reject(err) : resolve(result2);
+          if (!latestResultPromise) latestResultPromise = new Promise((resolve, reject) => {
+            let settlePromise;
+            provideLatestResult = (err, result2) => {
+              if (!settlePromise) settlePromise = () => err ? reject(err) : resolve(result2);
+            };
+            const triggerAnotherBuild = () => {
+              const request2 = {
+                command: "rebuild",
+                key: buildKey
               };
-              const triggerAnotherBuild = () => {
-                const request2 = {
-                  command: "rebuild",
-                  key: buildKey
-                };
-                sendRequest(refs, request2, (error2, response2) => {
-                  if (error2) {
-                    reject(new Error(error2));
-                  } else if (settlePromise) {
-                    settlePromise();
-                  } else {
-                    triggerAnotherBuild();
-                  }
-                });
-              };
-              triggerAnotherBuild();
-            });
+              sendRequest(refs, request2, (error2, response2) => {
+                if (error2) {
+                  reject(new Error(error2));
+                } else if (settlePromise) {
+                  settlePromise();
+                } else {
+                  triggerAnotherBuild();
+                }
+              });
+            };
+            triggerAnotherBuild();
+          });
           return latestResultPromise;
         },
         watch: (options2 = {}) => new Promise((resolve, reject) => {
-          if (!streamIn.hasFS)
-            throw new Error(`Cannot use the "watch" API in this environment`);
+          if (!streamIn.hasFS) throw new Error(`Cannot use the "watch" API in this environment`);
           const keys = {};
           checkForInvalidFlags(options2, keys, `in watch() call`);
           const request2 = {
@@ -1105,15 +986,12 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
             key: buildKey
           };
           sendRequest(refs, request2, (error2) => {
-            if (error2)
-              reject(new Error(error2));
-            else
-              resolve(void 0);
+            if (error2) reject(new Error(error2));
+            else resolve(void 0);
           });
         }),
         serve: (options2 = {}) => new Promise((resolve, reject) => {
-          if (!streamIn.hasFS)
-            throw new Error(`Cannot use the "serve" API in this environment`);
+          if (!streamIn.hasFS) throw new Error(`Cannot use the "serve" API in this environment`);
           const keys = {};
           const port = getFlag(options2, keys, "port", mustBeInteger);
           const host = getFlag(options2, keys, "host", mustBeString);
@@ -1128,21 +1006,14 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
             key: buildKey,
             onRequest: !!onRequest
           };
-          if (port !== void 0)
-            request2.port = port;
-          if (host !== void 0)
-            request2.host = host;
-          if (servedir !== void 0)
-            request2.servedir = servedir;
-          if (keyfile !== void 0)
-            request2.keyfile = keyfile;
-          if (certfile !== void 0)
-            request2.certfile = certfile;
-          if (fallback !== void 0)
-            request2.fallback = fallback;
+          if (port !== void 0) request2.port = port;
+          if (host !== void 0) request2.host = host;
+          if (servedir !== void 0) request2.servedir = servedir;
+          if (keyfile !== void 0) request2.keyfile = keyfile;
+          if (certfile !== void 0) request2.certfile = certfile;
+          if (fallback !== void 0) request2.fallback = fallback;
           sendRequest(refs, request2, (error2, response2) => {
-            if (error2)
-              return reject(new Error(error2));
+            if (error2) return reject(new Error(error2));
             if (onRequest) {
               requestCallbacks["serve-request"] = (id, request3) => {
                 onRequest(request3.args);
@@ -1153,8 +1024,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
           });
         }),
         cancel: () => new Promise((resolve) => {
-          if (didDispose)
-            return resolve();
+          if (didDispose) return resolve();
           const request2 = {
             command: "cancel",
             key: buildKey
@@ -1164,8 +1034,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
           });
         }),
         dispose: () => new Promise((resolve) => {
-          if (didDispose)
-            return resolve();
+          if (didDispose) return resolve();
           didDispose = true;
           const request2 = {
             command: "dispose",
@@ -1196,15 +1065,12 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
   plugins = [...plugins];
   for (let item of plugins) {
     let keys = {};
-    if (typeof item !== "object")
-      throw new Error(`Plugin at index ${i} must be an object`);
+    if (typeof item !== "object") throw new Error(`Plugin at index ${i} must be an object`);
     const name = getFlag(item, keys, "name", mustBeString);
-    if (typeof name !== "string" || name === "")
-      throw new Error(`Plugin at index ${i} is missing a name`);
+    if (typeof name !== "string" || name === "") throw new Error(`Plugin at index ${i} is missing a name`);
     try {
       let setup = getFlag(item, keys, "setup", mustBeFunction);
-      if (typeof setup !== "function")
-        throw new Error(`Plugin is missing a setup function`);
+      if (typeof setup !== "function") throw new Error(`Plugin is missing a setup function`);
       checkForInvalidFlags(item, keys, `on plugin ${quote(name)}`);
       let plugin = {
         name,
@@ -1215,10 +1081,8 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
       };
       i++;
       let resolve = (path, options = {}) => {
-        if (!isSetupDone)
-          throw new Error('Cannot call "resolve" before plugin setup has completed');
-        if (typeof path !== "string")
-          throw new Error(`The path to resolve must be a string`);
+        if (!isSetupDone) throw new Error('Cannot call "resolve" before plugin setup has completed');
+        if (typeof path !== "string") throw new Error(`The path to resolve must be a string`);
         let keys2 = /* @__PURE__ */ Object.create(null);
         let pluginName = getFlag(options, keys2, "pluginName", mustBeString);
         let importer = getFlag(options, keys2, "importer", mustBeString);
@@ -1234,34 +1098,25 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
             key: buildKey,
             pluginName: name
           };
-          if (pluginName != null)
-            request.pluginName = pluginName;
-          if (importer != null)
-            request.importer = importer;
-          if (namespace != null)
-            request.namespace = namespace;
-          if (resolveDir != null)
-            request.resolveDir = resolveDir;
-          if (kind != null)
-            request.kind = kind;
-          else
-            throw new Error(`Must specify "kind" when calling "resolve"`);
-          if (pluginData != null)
-            request.pluginData = details.store(pluginData);
+          if (pluginName != null) request.pluginName = pluginName;
+          if (importer != null) request.importer = importer;
+          if (namespace != null) request.namespace = namespace;
+          if (resolveDir != null) request.resolveDir = resolveDir;
+          if (kind != null) request.kind = kind;
+          else throw new Error(`Must specify "kind" when calling "resolve"`);
+          if (pluginData != null) request.pluginData = details.store(pluginData);
           sendRequest(refs, request, (error, response) => {
-            if (error !== null)
-              reject(new Error(error));
-            else
-              resolve2({
-                errors: replaceDetailsInMessages(response.errors, details),
-                warnings: replaceDetailsInMessages(response.warnings, details),
-                path: response.path,
-                external: response.external,
-                sideEffects: response.sideEffects,
-                namespace: response.namespace,
-                suffix: response.suffix,
-                pluginData: details.load(response.pluginData)
-              });
+            if (error !== null) reject(new Error(error));
+            else resolve2({
+              errors: replaceDetailsInMessages(response.errors, details),
+              warnings: replaceDetailsInMessages(response.warnings, details),
+              path: response.path,
+              external: response.external,
+              sideEffects: response.sideEffects,
+              namespace: response.namespace,
+              suffix: response.suffix,
+              pluginData: details.load(response.pluginData)
+            });
           });
         });
       };
@@ -1287,8 +1142,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
           checkForInvalidFlags(options, keys2, `in onResolve() call for plugin ${quote(name)}`);
-          if (filter == null)
-            throw new Error(`onResolve() call is missing a filter`);
+          if (filter == null) throw new Error(`onResolve() call is missing a filter`);
           let id = nextCallbackID++;
           onResolveCallbacks[id] = { name, callback, note: registeredNote };
           plugin.onResolve.push({ id, filter: filter.source, namespace: namespace || "" });
@@ -1300,8 +1154,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let filter = getFlag(options, keys2, "filter", mustBeRegExp);
           let namespace = getFlag(options, keys2, "namespace", mustBeString);
           checkForInvalidFlags(options, keys2, `in onLoad() call for plugin ${quote(name)}`);
-          if (filter == null)
-            throw new Error(`onLoad() call is missing a filter`);
+          if (filter == null) throw new Error(`onLoad() call is missing a filter`);
           let id = nextCallbackID++;
           onLoadCallbacks[id] = { name, callback, note: registeredNote };
           plugin.onLoad.push({ id, filter: filter.source, namespace: namespace || "" });
@@ -1311,8 +1164,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         },
         esbuild: streamIn.esbuild
       });
-      if (promise)
-        await promise;
+      if (promise) await promise;
       requestPlugins.push(plugin);
     } catch (e) {
       return { ok: false, error: e, pluginName: name };
@@ -1324,16 +1176,13 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
       try {
         let result = await callback();
         if (result != null) {
-          if (typeof result !== "object")
-            throw new Error(`Expected onStart() callback in plugin ${quote(name)} to return an object`);
+          if (typeof result !== "object") throw new Error(`Expected onStart() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let errors = getFlag(result, keys, "errors", mustBeArray);
           let warnings = getFlag(result, keys, "warnings", mustBeArray);
           checkForInvalidFlags(result, keys, `from onStart() callback in plugin ${quote(name)}`);
-          if (errors != null)
-            response.errors.push(...sanitizeMessages(errors, "errors", details, name, void 0));
-          if (warnings != null)
-            response.warnings.push(...sanitizeMessages(warnings, "warnings", details, name, void 0));
+          if (errors != null) response.errors.push(...sanitizeMessages(errors, "errors", details, name, void 0));
+          if (warnings != null) response.warnings.push(...sanitizeMessages(warnings, "warnings", details, name, void 0));
         }
       } catch (e) {
         response.errors.push(extractErrorMessageV8(e, streamIn, details, note && note(), name));
@@ -1355,8 +1204,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           pluginData: details.load(request.pluginData)
         });
         if (result != null) {
-          if (typeof result !== "object")
-            throw new Error(`Expected onResolve() callback in plugin ${quote(name)} to return an object`);
+          if (typeof result !== "object") throw new Error(`Expected onResolve() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let path = getFlag(result, keys, "path", mustBeString);
@@ -1371,28 +1219,17 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
           checkForInvalidFlags(result, keys, `from onResolve() callback in plugin ${quote(name)}`);
           response.id = id2;
-          if (pluginName != null)
-            response.pluginName = pluginName;
-          if (path != null)
-            response.path = path;
-          if (namespace != null)
-            response.namespace = namespace;
-          if (suffix != null)
-            response.suffix = suffix;
-          if (external != null)
-            response.external = external;
-          if (sideEffects != null)
-            response.sideEffects = sideEffects;
-          if (pluginData != null)
-            response.pluginData = details.store(pluginData);
-          if (errors != null)
-            response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
-          if (warnings != null)
-            response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
-          if (watchFiles != null)
-            response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
-          if (watchDirs != null)
-            response.watchDirs = sanitizeStringArray(watchDirs, "watchDirs");
+          if (pluginName != null) response.pluginName = pluginName;
+          if (path != null) response.path = path;
+          if (namespace != null) response.namespace = namespace;
+          if (suffix != null) response.suffix = suffix;
+          if (external != null) response.external = external;
+          if (sideEffects != null) response.sideEffects = sideEffects;
+          if (pluginData != null) response.pluginData = details.store(pluginData);
+          if (errors != null) response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
+          if (warnings != null) response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
+          if (watchFiles != null) response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
+          if (watchDirs != null) response.watchDirs = sanitizeStringArray(watchDirs, "watchDirs");
           break;
         }
       } catch (e) {
@@ -1415,8 +1252,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           with: request.with
         });
         if (result != null) {
-          if (typeof result !== "object")
-            throw new Error(`Expected onLoad() callback in plugin ${quote(name)} to return an object`);
+          if (typeof result !== "object") throw new Error(`Expected onLoad() callback in plugin ${quote(name)} to return an object`);
           let keys = {};
           let pluginName = getFlag(result, keys, "pluginName", mustBeString);
           let contents = getFlag(result, keys, "contents", mustBeStringOrUint8Array);
@@ -1429,26 +1265,16 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           let watchDirs = getFlag(result, keys, "watchDirs", mustBeArray);
           checkForInvalidFlags(result, keys, `from onLoad() callback in plugin ${quote(name)}`);
           response.id = id2;
-          if (pluginName != null)
-            response.pluginName = pluginName;
-          if (contents instanceof Uint8Array)
-            response.contents = contents;
-          else if (contents != null)
-            response.contents = encodeUTF8(contents);
-          if (resolveDir != null)
-            response.resolveDir = resolveDir;
-          if (pluginData != null)
-            response.pluginData = details.store(pluginData);
-          if (loader != null)
-            response.loader = loader;
-          if (errors != null)
-            response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
-          if (warnings != null)
-            response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
-          if (watchFiles != null)
-            response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
-          if (watchDirs != null)
-            response.watchDirs = sanitizeStringArray(watchDirs, "watchDirs");
+          if (pluginName != null) response.pluginName = pluginName;
+          if (contents instanceof Uint8Array) response.contents = contents;
+          else if (contents != null) response.contents = encodeUTF8(contents);
+          if (resolveDir != null) response.resolveDir = resolveDir;
+          if (pluginData != null) response.pluginData = details.store(pluginData);
+          if (loader != null) response.loader = loader;
+          if (errors != null) response.errors = sanitizeMessages(errors, "errors", details, name, void 0);
+          if (warnings != null) response.warnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
+          if (watchFiles != null) response.watchFiles = sanitizeStringArray(watchFiles, "watchFiles");
+          if (watchDirs != null) response.watchDirs = sanitizeStringArray(watchDirs, "watchDirs");
           break;
         }
       } catch (e) {
@@ -1470,16 +1296,13 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           try {
             const value = await callback(result);
             if (value != null) {
-              if (typeof value !== "object")
-                throw new Error(`Expected onEnd() callback in plugin ${quote(name)} to return an object`);
+              if (typeof value !== "object") throw new Error(`Expected onEnd() callback in plugin ${quote(name)} to return an object`);
               let keys = {};
               let errors = getFlag(value, keys, "errors", mustBeArray);
               let warnings = getFlag(value, keys, "warnings", mustBeArray);
               checkForInvalidFlags(value, keys, `from onEnd() callback in plugin ${quote(name)}`);
-              if (errors != null)
-                newErrors = sanitizeMessages(errors, "errors", details, name, void 0);
-              if (warnings != null)
-                newWarnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
+              if (errors != null) newErrors = sanitizeMessages(errors, "errors", details, name, void 0);
+              if (warnings != null) newWarnings = sanitizeMessages(warnings, "warnings", details, name, void 0);
             }
           } catch (e) {
             newErrors = [extractErrorMessageV8(e, streamIn, details, note && note(), name)];
@@ -1524,8 +1347,7 @@ function createObjectStash() {
       return map.get(id);
     },
     store(value) {
-      if (value === void 0)
-        return -1;
+      if (value === void 0) return -1;
       const id = nextID++;
       map.set(id, value);
       return id;
@@ -1536,8 +1358,7 @@ function extractCallerV8(e, streamIn, ident) {
   let note;
   let tried = false;
   return () => {
-    if (tried)
-      return note;
+    if (tried) return note;
     tried = true;
     try {
       let lines = (e.stack + "").split("\n");
@@ -1569,8 +1390,7 @@ function parseStackLinesV8(streamIn, lines, ident) {
   if (streamIn.readFileSync && !lines[0].startsWith(at) && lines[1].startsWith(at)) {
     for (let i = 1; i < lines.length; i++) {
       let line = lines[i];
-      if (!line.startsWith(at))
-        continue;
+      if (!line.startsWith(at)) continue;
       line = line.slice(at.length);
       while (true) {
         let match = /^(?:new |async )?\S+ \((.*)\)$/.exec(line);
@@ -1613,10 +1433,8 @@ function parseStackLinesV8(streamIn, lines, ident) {
 function failureErrorWithLog(text, errors, warnings) {
   let limit = 5;
   text += errors.length < 1 ? "" : ` with ${errors.length} error${errors.length < 2 ? "" : "s"}:` + errors.slice(0, limit + 1).map((e, i) => {
-    if (i === limit)
-      return "\n...";
-    if (!e.location)
-      return `
+    if (i === limit) return "\n...";
+    if (!e.location) return `
 error: ${e.text}`;
     let { file, line, column } = e.location;
     let pluginText = e.pluginName ? `[plugin: ${e.pluginName}] ` : "";
@@ -1645,8 +1463,7 @@ function replaceDetailsInMessages(messages, stash) {
   return messages;
 }
 function sanitizeLocation(location, where, terminalWidth) {
-  if (location == null)
-    return null;
+  if (location == null) return null;
   let keys = {};
   let file = getFlag(location, keys, "file", mustBeString);
   let namespace = getFlag(location, keys, "namespace", mustBeString);
@@ -1716,8 +1533,7 @@ function sanitizeMessages(messages, property, stash, fallbackPluginName, termina
 function sanitizeStringArray(values, property) {
   const result = [];
   for (const value of values) {
-    if (typeof value !== "string")
-      throw new Error(`${quote(property)} must be an array of strings`);
+    if (typeof value !== "string") throw new Error(`${quote(property)} must be an array of strings`);
     result.push(value);
   }
   return result;
@@ -1740,7 +1556,7 @@ function convertOutputFiles({ path, contents, hash }) {
 }
 
 // lib/deno/wasm.ts
-var version = "0.20.2";
+var version = "0.21.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1759,8 +1575,7 @@ var analyzeMetafileSync = () => {
   throw new Error(`The "analyzeMetafileSync" API does not work in Deno`);
 };
 var stop = () => {
-  if (stopService)
-    stopService();
+  if (stopService) stopService();
   return Promise.resolve();
 };
 var initializePromise;
@@ -1773,8 +1588,7 @@ var initialize = async (options) => {
   let wasmURL = options.wasmURL;
   let wasmModule = options.wasmModule;
   let useWorker = options.worker !== false;
-  if (initializePromise)
-    throw new Error('Cannot call "initialize" more than once');
+  if (initializePromise) throw new Error('Cannot call "initialize" more than once');
   initializePromise = startRunningService(wasmURL || "esbuild.wasm", wasmModule, useWorker);
   initializePromise.catch(() => {
     initializePromise = void 0;
@@ -1784,7 +1598,7 @@ var initialize = async (options) => {
 var startRunningService = async (wasmURL, wasmModule, useWorker) => {
   let worker;
   if (useWorker) {
-    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`\n`);return i!=-1&&(console.log(c.substring(0,i)),c=c.substring(i+1)),s.length},write(n,s,i,a,u,h){if(i!==0||a!==s.length||u!==null){h(r());return}const d=this.writeSync(n,s);h(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,u,h){h(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},n=t=>{const e=this.mem.getUint32(t+0,!0),o=this.mem.getInt32(t+4,!0);return e+o*4294967296},s=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const o=this.mem.getUint32(t,!0);return this._values[o]},i=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let l=this._ids.get(e);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=e,this._goRefCounts[l]=0,this._ids.set(e,l)),this._goRefCounts[l]++;let m=0;switch(typeof e){case"object":e!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(t+4,2146959360|m,!0),this.mem.setUint32(t,l,!0)},a=t=>{const e=n(t+0),o=n(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,o)},u=t=>{const e=n(t+0),o=n(t+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(e+m*8);return l},h=t=>{const e=n(t+0),o=n(t+8);return g.decode(new DataView(this._inst.exports.mem.buffer,e,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=n(t+8),o=n(t+16),l=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,c(t+8,(d+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();c(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(t+8)+1)),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(a(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const o=this._values[e];this._values[e]=null,this._ids.delete(o),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,i(t+24,h(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(s(t+8),h(t+16));t=this._inst.exports.getsp()>>>0,i(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(s(t+8),h(t+16),s(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(s(t+8),h(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,i(t+24,Reflect.get(s(t+8),n(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(s(t+8),n(t+16),s(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=s(t+8),o=Reflect.get(e,h(t+16)),l=u(t+32),m=Reflect.apply(o,e,l);t=this._inst.exports.getsp()>>>0,i(t+56,m),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.apply(e,void 0,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.construct(e,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,c(t+16,parseInt(s(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(s(t+8)));i(t+16,e),c(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=s(t+8);a(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,s(t+8)instanceof s(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=a(t+8),o=s(t+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=s(t+8),o=a(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=t=>{const e=n,o=f.encode(t+"\\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),e},i=this.argv.length,a=[];this.argv.forEach(t=>{a.push(s(t))}),a.push(0),Object.keys(this.env).sort().forEach(t=>{a.push(s(`${t}=${this.env[t]}`))}),a.push(0);const h=n;if(a.forEach(t=>{this.mem.setUint32(n,t,!0),this.mem.setUint32(n+4,0,!0),n+=8}),n>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,h),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(u,h)=>{if(u===1)postMessage(h);else if(u===2){c+=f.decode(h);let d=c.split(`\n`);d.length>1&&console.log(d.slice(0,-1).join(`\n`)),c=d[d.length-1]}else throw new Error("Bad write");return h.length};let n=[],s,i=0;onmessage=({data:u})=>(u.length>0&&(n.push(u),s&&s()),a),g.read=(u,h,d,t,e,o)=>{if(u!==0||d!==0||t!==h.length||e!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(u,h,d,t,e,o);return}let l=n[0],m=Math.max(0,Math.min(t,l.length-i));h.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;return a.argv=["","--service=0.20.2"],tryToInstantiateModule(r,a).then(u=>{postMessage(null),a.run(u)},u=>{postMessage(u)}),a};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
+    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`\n`);return i!=-1&&(console.log(c.substring(0,i)),c=c.substring(i+1)),s.length},write(n,s,i,a,u,h){if(i!==0||a!==s.length||u!==null){h(r());return}const d=this.writeSync(n,s);h(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,u,h){h(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},n=t=>{const e=this.mem.getUint32(t+0,!0),o=this.mem.getInt32(t+4,!0);return e+o*4294967296},s=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const o=this.mem.getUint32(t,!0);return this._values[o]},i=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let l=this._ids.get(e);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=e,this._goRefCounts[l]=0,this._ids.set(e,l)),this._goRefCounts[l]++;let m=0;switch(typeof e){case"object":e!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(t+4,2146959360|m,!0),this.mem.setUint32(t,l,!0)},a=t=>{const e=n(t+0),o=n(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,o)},u=t=>{const e=n(t+0),o=n(t+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(e+m*8);return l},h=t=>{const e=n(t+0),o=n(t+8);return g.decode(new DataView(this._inst.exports.mem.buffer,e,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=n(t+8),o=n(t+16),l=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,c(t+8,(d+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();c(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(t+8)+1)),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(a(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const o=this._values[e];this._values[e]=null,this._ids.delete(o),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,i(t+24,h(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(s(t+8),h(t+16));t=this._inst.exports.getsp()>>>0,i(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(s(t+8),h(t+16),s(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(s(t+8),h(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,i(t+24,Reflect.get(s(t+8),n(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(s(t+8),n(t+16),s(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=s(t+8),o=Reflect.get(e,h(t+16)),l=u(t+32),m=Reflect.apply(o,e,l);t=this._inst.exports.getsp()>>>0,i(t+56,m),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.apply(e,void 0,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.construct(e,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,c(t+16,parseInt(s(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(s(t+8)));i(t+16,e),c(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=s(t+8);a(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,s(t+8)instanceof s(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=a(t+8),o=s(t+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=s(t+8),o=a(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=t=>{const e=n,o=f.encode(t+"\\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),e},i=this.argv.length,a=[];this.argv.forEach(t=>{a.push(s(t))}),a.push(0),Object.keys(this.env).sort().forEach(t=>{a.push(s(`${t}=${this.env[t]}`))}),a.push(0);const h=n;if(a.forEach(t=>{this.mem.setUint32(n,t,!0),this.mem.setUint32(n+4,0,!0),n+=8}),n>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,h),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(u,h)=>{if(u===1)postMessage(h);else if(u===2){c+=f.decode(h);let d=c.split(`\n`);d.length>1&&console.log(d.slice(0,-1).join(`\n`)),c=d[d.length-1]}else throw new Error("Bad write");return h.length};let n=[],s,i=0;onmessage=({data:u})=>(u.length>0&&(n.push(u),s&&s()),a),g.read=(u,h,d,t,e,o)=>{if(u!==0||d!==0||t!==h.length||e!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(u,h,d,t,e,o);return}let l=n[0],m=Math.max(0,Math.min(t,l.length-i));h.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;return a.argv=["","--service=0.21.0"],tryToInstantiateModule(r,a).then(u=>{postMessage(null),a.run(u)},u=>{postMessage(u)}),a};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
     worker = new Worker(URL.createObjectURL(blob), { type: "module" });
   } else {
     let onmessage = (postMessage=>{
@@ -1794,7 +1608,7 @@ var startRunningService = async (wasmURL, wasmModule, useWorker) => {
 let onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const c=new Error("not implemented");return c.code="ENOSYS",c};if(!globalThis.fs){let c="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1},writeSync(n,s){c+=g.decode(s);const i=c.lastIndexOf(`
 `);return i!=-1&&(console.log(c.substring(0,i)),c=c.substring(i+1)),s.length},write(n,s,i,a,u,h){if(i!==0||a!==s.length||u!==null){h(r());return}const d=this.writeSync(n,s);h(null,d)},chmod(n,s,i){i(r())},chown(n,s,i,a){a(r())},close(n,s){s(r())},fchmod(n,s,i){i(r())},fchown(n,s,i,a){a(r())},fstat(n,s){s(r())},fsync(n,s){s(null)},ftruncate(n,s,i){i(r())},lchown(n,s,i,a){a(r())},link(n,s,i){i(r())},lstat(n,s){s(r())},mkdir(n,s,i){i(r())},open(n,s,i,a){a(r())},read(n,s,i,a,u,h){h(r())},readdir(n,s){s(r())},readlink(n,s){s(r())},rename(n,s,i){i(r())},rmdir(n,s){s(r())},stat(n,s){s(r())},symlink(n,s,i){i(r())},truncate(n,s,i){i(r())},unlink(n,s){s(r())},utimes(n,s,i,a){a(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),g=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const c=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},n=t=>{const e=this.mem.getUint32(t+0,!0),o=this.mem.getInt32(t+4,!0);return e+o*4294967296},s=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const o=this.mem.getUint32(t,!0);return this._values[o]},i=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let l=this._ids.get(e);l===void 0&&(l=this._idPool.pop(),l===void 0&&(l=this._values.length),this._values[l]=e,this._goRefCounts[l]=0,this._ids.set(e,l)),this._goRefCounts[l]++;let m=0;switch(typeof e){case"object":e!==null&&(m=1);break;case"string":m=2;break;case"symbol":m=3;break;case"function":m=4;break}this.mem.setUint32(t+4,2146959360|m,!0),this.mem.setUint32(t,l,!0)},a=t=>{const e=n(t+0),o=n(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,o)},u=t=>{const e=n(t+0),o=n(t+8),l=new Array(o);for(let m=0;m<o;m++)l[m]=s(e+m*8);return l},h=t=>{const e=n(t+0),o=n(t+8);return g.decode(new DataView(this._inst.exports.mem.buffer,e,o))},d=Date.now()-performance.now();this.importObject={go:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=n(t+8),o=n(t+16),l=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,o,l))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,c(t+8,(d+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();c(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},n(t+8)+1)),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(a(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const o=this._values[e];this._values[e]=null,this._ids.delete(o),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,i(t+24,h(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(s(t+8),h(t+16));t=this._inst.exports.getsp()>>>0,i(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(s(t+8),h(t+16),s(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(s(t+8),h(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,i(t+24,Reflect.get(s(t+8),n(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(s(t+8),n(t+16),s(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=s(t+8),o=Reflect.get(e,h(t+16)),l=u(t+32),m=Reflect.apply(o,e,l);t=this._inst.exports.getsp()>>>0,i(t+56,m),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.apply(e,void 0,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=s(t+8),o=u(t+16),l=Reflect.construct(e,o);t=this._inst.exports.getsp()>>>0,i(t+40,l),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,i(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,c(t+16,parseInt(s(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(s(t+8)));i(t+16,e),c(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=s(t+8);a(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,s(t+8)instanceof s(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=a(t+8),o=s(t+32);if(!(o instanceof Uint8Array||o instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=s(t+8),o=a(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const l=o.subarray(0,e.length);e.set(l),c(t+40,l.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(c){if(!(c instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=c,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let n=4096;const s=t=>{const e=n,o=f.encode(t+"\0");return new Uint8Array(this.mem.buffer,n,o.length).set(o),n+=o.length,n%8!==0&&(n+=8-n%8),e},i=this.argv.length,a=[];this.argv.forEach(t=>{a.push(s(t))}),a.push(0),Object.keys(this.env).sort().forEach(t=>{a.push(s(`${t}=${this.env[t]}`))}),a.push(0);const h=n;if(a.forEach(t=>{this.mem.setUint32(n,t,!0),this.mem.setUint32(n+4,0,!0),n+=8}),n>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(i,h),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(c){const n=this;return function(){const s={id:c,this:this,args:arguments};return n._pendingEvent=s,n._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,g=globalThis.fs,c="";g.writeSync=(u,h)=>{if(u===1)postMessage(h);else if(u===2){c+=f.decode(h);let d=c.split(`
 `);d.length>1&&console.log(d.slice(0,-1).join(`
-`)),c=d[d.length-1]}else throw new Error("Bad write");return h.length};let n=[],s,i=0;onmessage=({data:u})=>(u.length>0&&(n.push(u),s&&s()),a),g.read=(u,h,d,t,e,o)=>{if(u!==0||d!==0||t!==h.length||e!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(u,h,d,t,e,o);return}let l=n[0],m=Math.max(0,Math.min(t,l.length-i));h.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;return a.argv=["","--service=0.20.2"],tryToInstantiateModule(r,a).then(u=>{postMessage(null),a.run(u)},u=>{postMessage(u)}),a};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
+`)),c=d[d.length-1]}else throw new Error("Bad write");return h.length};let n=[],s,i=0;onmessage=({data:u})=>(u.length>0&&(n.push(u),s&&s()),a),g.read=(u,h,d,t,e,o)=>{if(u!==0||d!==0||t!==h.length||e!==null)throw new Error("Bad read");if(n.length===0){s=()=>g.read(u,h,d,t,e,o);return}let l=n[0],m=Math.max(0,Math.min(t,l.length-i));h.set(l.subarray(i,i+m),d),i+=m,i===l.length&&(n.shift(),i=0),o(null,m)};let a=new globalThis.Go;return a.argv=["","--service=0.21.0"],tryToInstantiateModule(r,a).then(u=>{postMessage(null),a.run(u)},u=>{postMessage(u)}),a};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const g=await fetch(r);if(!g.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(g.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(g,f.importObject)).instance;const c=await g.arrayBuffer();return(await WebAssembly.instantiate(c,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
     let go;
     worker = {
       onmessage: null,
@@ -1814,10 +1628,8 @@ let onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let 
   });
   worker.onmessage = ({ data: error }) => {
     worker.onmessage = ({ data }) => readFromStdout(data);
-    if (error)
-      firstMessageReject(error);
-    else
-      firstMessageResolve();
+    if (error) firstMessageReject(error);
+    else firstMessageResolve();
   };
   worker.postMessage(wasmModule || new URL(wasmURL, import.meta.url).toString());
   let { readFromStdout, service } = createChannel({
