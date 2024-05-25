@@ -637,8 +637,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.21.3") {
-        throw new Error(`Cannot start service: Host version "${"0.21.3"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.21.4") {
+        throw new Error(`Cannot start service: Host version "${"0.21.4"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1090,6 +1090,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
         let resolveDir = getFlag(options, keys2, "resolveDir", mustBeString);
         let kind = getFlag(options, keys2, "kind", mustBeString);
         let pluginData = getFlag(options, keys2, "pluginData", canBeAnything);
+        let importAttributes = getFlag(options, keys2, "with", mustBeObject);
         checkForInvalidFlags(options, keys2, "in resolve() call");
         return new Promise((resolve2, reject) => {
           const request = {
@@ -1105,6 +1106,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           if (kind != null) request.kind = kind;
           else throw new Error(`Must specify "kind" when calling "resolve"`);
           if (pluginData != null) request.pluginData = details.store(pluginData);
+          if (importAttributes != null) request.with = sanitizeStringMap(importAttributes, "with");
           sendRequest(refs, request, (error, response) => {
             if (error !== null) reject(new Error(error));
             else resolve2({
@@ -1201,7 +1203,8 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           namespace: request.namespace,
           resolveDir: request.resolveDir,
           kind: request.kind,
-          pluginData: details.load(request.pluginData)
+          pluginData: details.load(request.pluginData),
+          with: request.with
         });
         if (result != null) {
           if (typeof result !== "object") throw new Error(`Expected onResolve() callback in plugin ${quote(name)} to return an object`);
@@ -1538,6 +1541,15 @@ function sanitizeStringArray(values, property) {
   }
   return result;
 }
+function sanitizeStringMap(map, property) {
+  const result = /* @__PURE__ */ Object.create(null);
+  for (const key in map) {
+    const value = map[key];
+    if (typeof value !== "string") throw new Error(`key ${quote(key)} in object ${quote(property)} must be a string`);
+    result[key] = value;
+  }
+  return result;
+}
 function convertOutputFiles({ path, contents, hash }) {
   let text = null;
   return {
@@ -1557,7 +1569,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.21.3";
+var version = "0.21.4";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
