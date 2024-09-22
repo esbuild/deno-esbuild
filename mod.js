@@ -637,8 +637,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.23.1") {
-        throw new Error(`Cannot start service: Host version "${"0.23.1"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.24.0") {
+        throw new Error(`Cannot start service: Host version "${"0.24.0"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1573,7 +1573,7 @@ function convertOutputFiles({ path, contents, hash }) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.23.1";
+var version = "0.24.0";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1709,14 +1709,14 @@ var spawnNew = (cmd, { args, stdin, stdout, stderr }) => {
     stdout,
     stderr
   }).spawn();
-  const writer = child.stdin.getWriter();
-  const reader = child.stdout.getReader();
+  const writer = stdin === "piped" ? child.stdin.getWriter() : null;
+  const reader = stdout === "piped" ? child.stdout.getReader() : null;
   return {
-    write: (bytes) => writer.write(bytes),
-    read: () => reader.read().then((x) => x.value || null),
+    write: writer ? (bytes) => writer.write(bytes) : () => Promise.resolve(),
+    read: reader ? () => reader.read().then((x) => x.value || null) : () => Promise.resolve(null),
     close: async () => {
-      await writer.close();
-      await reader.cancel();
+      if (writer) await writer.close();
+      if (reader) await reader.cancel();
       await child.status;
     },
     status: () => child.status
