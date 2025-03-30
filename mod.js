@@ -327,8 +327,8 @@ function pushCommonFlags(flags, options, keys) {
   if (ignoreAnnotations) flags.push(`--ignore-annotations`);
   if (drop) for (let what of drop) flags.push(`--drop:${validateStringValue(what, "drop")}`);
   if (dropLabels) flags.push(`--drop-labels=${Array.from(dropLabels).map((what) => validateStringValue(what, "dropLabels")).join(",")}`);
-  if (mangleProps) flags.push(`--mangle-props=${mangleProps.source}`);
-  if (reserveProps) flags.push(`--reserve-props=${reserveProps.source}`);
+  if (mangleProps) flags.push(`--mangle-props=${jsRegExpToGoRegExp(mangleProps)}`);
+  if (reserveProps) flags.push(`--reserve-props=${jsRegExpToGoRegExp(reserveProps)}`);
   if (mangleQuoted !== void 0) flags.push(`--mangle-quoted=${mangleQuoted}`);
   if (jsx) flags.push(`--jsx=${jsx}`);
   if (jsxFactory) flags.push(`--jsx-factory=${jsxFactory}`);
@@ -638,8 +638,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.25.1") {
-        throw new Error(`Cannot start service: Host version "${"0.25.1"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.25.2") {
+        throw new Error(`Cannot start service: Host version "${"0.25.2"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1148,7 +1148,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           if (filter == null) throw new Error(`onResolve() call is missing a filter`);
           let id = nextCallbackID++;
           onResolveCallbacks[id] = { name, callback, note: registeredNote };
-          plugin.onResolve.push({ id, filter: filter.source, namespace: namespace || "" });
+          plugin.onResolve.push({ id, filter: jsRegExpToGoRegExp(filter), namespace: namespace || "" });
         },
         onLoad(options, callback) {
           let registeredText = `This error came from the "onLoad" callback registered here:`;
@@ -1160,7 +1160,7 @@ var handlePlugins = async (buildKey, sendRequest, sendResponse, refs, streamIn, 
           if (filter == null) throw new Error(`onLoad() call is missing a filter`);
           let id = nextCallbackID++;
           onLoadCallbacks[id] = { name, callback, note: registeredNote };
-          plugin.onLoad.push({ id, filter: filter.source, namespace: namespace || "" });
+          plugin.onLoad.push({ id, filter: jsRegExpToGoRegExp(filter), namespace: namespace || "" });
         },
         onDispose(callback) {
           onDisposeCallbacks.push(callback);
@@ -1571,10 +1571,15 @@ function convertOutputFiles({ path, contents, hash }) {
     }
   };
 }
+function jsRegExpToGoRegExp(regexp) {
+  let result = regexp.source;
+  if (regexp.flags) result = `(?${regexp.flags})${result}`;
+  return result;
+}
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.25.1";
+var version = "0.25.2";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
