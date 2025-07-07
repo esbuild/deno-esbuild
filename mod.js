@@ -616,8 +616,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.25.5") {
-        throw new Error(`Cannot start service: Host version "${"0.25.5"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.25.6") {
+        throw new Error(`Cannot start service: Host version "${"0.25.6"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -959,11 +959,13 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
         watch: (options2 = {}) => new Promise((resolve, reject) => {
           if (!streamIn.hasFS) throw new Error(`Cannot use the "watch" API in this environment`);
           const keys = {};
+          const delay = getFlag(options2, keys, "delay", mustBeInteger);
           checkForInvalidFlags(options2, keys, `in watch() call`);
           const request2 = {
             command: "watch",
             key: buildKey
           };
+          if (delay) request2.delay = delay;
           sendRequest(refs, request2, (error2) => {
             if (error2) reject(new Error(error2));
             else resolve(void 0);
@@ -1565,7 +1567,7 @@ function jsRegExpToGoRegExp(regexp) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.25.5";
+var version = "0.25.6";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
