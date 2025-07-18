@@ -311,6 +311,7 @@ function pushCommonFlags(flags, options, keys) {
   let keepNames = getFlag(options, keys, "keepNames", mustBeBoolean);
   let platform = getFlag(options, keys, "platform", mustBeString);
   let tsconfigRaw = getFlag(options, keys, "tsconfigRaw", mustBeStringOrObject);
+  let absPaths = getFlag(options, keys, "absPaths", mustBeArrayOfStrings);
   if (legalComments) flags.push(`--legal-comments=${legalComments}`);
   if (sourceRoot !== void 0) flags.push(`--source-root=${sourceRoot}`);
   if (sourcesContent !== void 0) flags.push(`--sources-content=${sourcesContent}`);
@@ -329,6 +330,7 @@ function pushCommonFlags(flags, options, keys) {
   if (ignoreAnnotations) flags.push(`--ignore-annotations`);
   if (drop) for (let what of drop) flags.push(`--drop:${validateStringValue(what, "drop")}`);
   if (dropLabels) flags.push(`--drop-labels=${validateAndJoinStringArray(dropLabels, "drop label")}`);
+  if (absPaths) flags.push(`--abs-paths=${validateAndJoinStringArray(absPaths, "abs paths")}`);
   if (mangleProps) flags.push(`--mangle-props=${jsRegExpToGoRegExp(mangleProps)}`);
   if (reserveProps) flags.push(`--reserve-props=${jsRegExpToGoRegExp(reserveProps)}`);
   if (mangleQuoted !== void 0) flags.push(`--mangle-quoted=${mangleQuoted}`);
@@ -616,8 +618,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.25.6") {
-        throw new Error(`Cannot start service: Host version "${"0.25.6"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.25.7") {
+        throw new Error(`Cannot start service: Host version "${"0.25.7"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1567,7 +1569,7 @@ function jsRegExpToGoRegExp(regexp) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.25.6";
+var version = "0.25.7";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
