@@ -618,8 +618,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.25.11") {
-        throw new Error(`Cannot start service: Host version "${"0.25.11"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.25.12") {
+        throw new Error(`Cannot start service: Host version "${"0.25.12"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -1569,7 +1569,7 @@ function jsRegExpToGoRegExp(regexp) {
 
 // lib/deno/mod.ts
 import * as denoflate from "https://deno.land/x/denoflate@1.2.1/mod.ts";
-var version = "0.25.11";
+var version = "0.25.12";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
