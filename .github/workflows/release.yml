@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  schedule:
+    - cron: "27 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Clone the esbuild repo
+        run: |
+          git clone --depth 1 https://github.com/evanw/esbuild.git
+
+      - name: Read version info
+        run: |
+          echo "GO_VERSION=$(cat esbuild/go.version)" >> $GITHUB_ENV
+          echo "ESBUILD_VERSION=$(cat esbuild/version.txt)" >> $GITHUB_ENV
+
+      - name: Check for the "v${{ env.ESBUILD_VERSION }}" tag
+        id: tag-check
+        continue-on-error: true
+        run: |
+          git fetch --tags
+          git show-ref --tags 'v${{ env.ESBUILD_VERSION }}' --quiet
+
+      - if: steps.tag-check.outcome == 'failure'
+        name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - if: steps.tag-check.outcome == 'failure'
+        name: Build for Deno
+        run: |
+          cd esbuild
+          ln -s .. deno
+          make platform-deno
+
+      - if: steps.tag-check.outcome == 'failure'
+        name: Remove the esbuild repo
+        run: |
+          rm -fr esbuild
+
+      - if: steps.tag-check.outcome == 'failure'
+        name: Commit and push
+        run: |
+          git config --global user.name GitHub
+          git config --global user.email 'github@example.com'
+          git status
+          git add .
+          git commit -am 'publish ${{ env.ESBUILD_VERSION }} to deno'
+          git push origin main
+          git tag 'v${{ env.ESBUILD_VERSION }}'
+          git push origin tag 'v${{ env.ESBUILD_VERSION }}'
