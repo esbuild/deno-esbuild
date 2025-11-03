@@ -29,7 +29,7 @@ jobs:
         continue-on-error: true
         run: |
           git fetch --tags
-          git show-ref --tags 'v${{ env.ESBUILD_VERSION }}' --quiet
+          git show-ref --tags "v$ESBUILD_VERSION" --quiet
 
       - if: steps.tag-check.outcome == 'failure'
         name: Set up Go ${{ env.GO_VERSION }}
@@ -56,7 +56,7 @@ jobs:
           git config --global user.email 'github@example.com'
           git status
           git add .
-          git commit -am 'publish ${{ env.ESBUILD_VERSION }} to deno'
+          git commit -am "publish $ESBUILD_VERSION to deno"
           git push origin main
-          git tag 'v${{ env.ESBUILD_VERSION }}'
-          git push origin tag 'v${{ env.ESBUILD_VERSION }}'
+          git tag "v$ESBUILD_VERSION"
+          git push origin tag "v$ESBUILD_VERSION"
