@@ -181,13 +181,294 @@ esbuild in this environment because esbuild relies on this invariant. This
 is not a problem with esbuild. You need to fix your environment instead.
 `);
 function readUInt32LE(buffer, offset) {
-  return buffer[offset++] | buffer[offset++] << 8 | buffer[offset++] << 16 | buffer[offset++] << 24;
+  return (buffer[offset++] | buffer[offset++] << 8 | buffer[offset++] << 16 | buffer[offset++] << 24) >>> 0;
 }
 function writeUInt32LE(buffer, value, offset) {
   buffer[offset++] = value;
   buffer[offset++] = value >> 8;
   buffer[offset++] = value >> 16;
   buffer[offset++] = value >> 24;
+}
+
+// lib/shared/uint8array_json_parser.ts
+var fromCharCode = String.fromCharCode;
+function throwSyntaxError(bytes, index, message) {
+  const c = bytes[index];
+  let line = 1;
+  let column = 0;
+  for (let i = 0; i < index; i++) {
+    if (bytes[i] === 10 /* Newline */) {
+      line++;
+      column = 0;
+    } else {
+      column++;
+    }
+  }
+  throw new SyntaxError(
+    message ? message : index === bytes.length ? "Unexpected end of input while parsing JSON" : c >= 32 && c <= 126 ? `Unexpected character ${fromCharCode(c)} in JSON at position ${index} (line ${line}, column ${column})` : `Unexpected byte 0x${c.toString(16)} in JSON at position ${index} (line ${line}, column ${column})`
+  );
+}
+function JSON_parse(bytes) {
+  if (!(bytes instanceof Uint8Array)) {
+    throw new Error(`JSON input must be a Uint8Array`);
+  }
+  const propertyStack = [];
+  const objectStack = [];
+  const stateStack = [];
+  const length = bytes.length;
+  let property = null;
+  let state = 0 /* TopLevel */;
+  let object;
+  let i = 0;
+  while (i < length) {
+    let c = bytes[i++];
+    if (c <= 32 /* Space */) {
+      continue;
+    }
+    let value;
+    if (state === 2 /* Object */ && property === null && c !== 34 /* Quote */ && c !== 125 /* CloseBrace */) {
+      throwSyntaxError(bytes, --i);
+    }
+    switch (c) {
+      // True
+      case 116 /* LowerT */: {
+        if (bytes[i++] !== 114 /* LowerR */ || bytes[i++] !== 117 /* LowerU */ || bytes[i++] !== 101 /* LowerE */) {
+          throwSyntaxError(bytes, --i);
+        }
+        value = true;
+        break;
+      }
+      // False
+      case 102 /* LowerF */: {
+        if (bytes[i++] !== 97 /* LowerA */ || bytes[i++] !== 108 /* LowerL */ || bytes[i++] !== 115 /* LowerS */ || bytes[i++] !== 101 /* LowerE */) {
+          throwSyntaxError(bytes, --i);
+        }
+        value = false;
+        break;
+      }
+      // Null
+      case 110 /* LowerN */: {
+        if (bytes[i++] !== 117 /* LowerU */ || bytes[i++] !== 108 /* LowerL */ || bytes[i++] !== 108 /* LowerL */) {
+          throwSyntaxError(bytes, --i);
+        }
+        value = null;
+        break;
+      }
+      // Number begin
+      case 45 /* Minus */:
+      case 46 /* Dot */:
+      case 48 /* Digit0 */:
+      case 49 /* Digit1 */:
+      case 50 /* Digit2 */:
+      case 51 /* Digit3 */:
+      case 52 /* Digit4 */:
+      case 53 /* Digit5 */:
+      case 54 /* Digit6 */:
+      case 55 /* Digit7 */:
+      case 56 /* Digit8 */:
+      case 57 /* Digit9 */: {
+        let index = i;
+        value = fromCharCode(c);
+        c = bytes[i];
+        while (true) {
+          switch (c) {
+            case 43 /* Plus */:
+            case 45 /* Minus */:
+            case 46 /* Dot */:
+            case 48 /* Digit0 */:
+            case 49 /* Digit1 */:
+            case 50 /* Digit2 */:
+            case 51 /* Digit3 */:
+            case 52 /* Digit4 */:
+            case 53 /* Digit5 */:
+            case 54 /* Digit6 */:
+            case 55 /* Digit7 */:
+            case 56 /* Digit8 */:
+            case 57 /* Digit9 */:
+            case 101 /* LowerE */:
+            case 69 /* UpperE */: {
+              value += fromCharCode(c);
+              c = bytes[++i];
+              continue;
+            }
+          }
+          break;
+        }
+        value = +value;
+        if (isNaN(value)) {
+          throwSyntaxError(bytes, --index, "Invalid number");
+        }
+        break;
+      }
+      // String begin
+      case 34 /* Quote */: {
+        value = "";
+        while (true) {
+          if (i >= length) {
+            throwSyntaxError(bytes, length);
+          }
+          c = bytes[i++];
+          if (c === 34 /* Quote */) {
+            break;
+          } else if (c === 92 /* Backslash */) {
+            switch (bytes[i++]) {
+              // Normal escape sequence
+              case 34 /* Quote */:
+                value += '"';
+                break;
+              case 47 /* Slash */:
+                value += "/";
+                break;
+              case 92 /* Backslash */:
+                value += "\\";
+                break;
+              case 98 /* LowerB */:
+                value += "\b";
+                break;
+              case 102 /* LowerF */:
+                value += "\f";
+                break;
+              case 110 /* LowerN */:
+                value += "\n";
+                break;
+              case 114 /* LowerR */:
+                value += "\r";
+                break;
+              case 116 /* LowerT */:
+                value += "	";
+                break;
+              // Unicode escape sequence
+              case 117 /* LowerU */: {
+                let code = 0;
+                for (let j = 0; j < 4; j++) {
+                  c = bytes[i++];
+                  code <<= 4;
+                  if (c >= 48 /* Digit0 */ && c <= 57 /* Digit9 */) code |= c - 48 /* Digit0 */;
+                  else if (c >= 97 /* LowerA */ && c <= 102 /* LowerF */) code |= c + (10 - 97 /* LowerA */);
+                  else if (c >= 65 /* UpperA */ && c <= 70 /* UpperF */) code |= c + (10 - 65 /* UpperA */);
+                  else throwSyntaxError(bytes, --i);
+                }
+                value += fromCharCode(code);
+                break;
+              }
+              // Invalid escape sequence
+              default:
+                throwSyntaxError(bytes, --i);
+                break;
+            }
+          } else if (c <= 127) {
+            value += fromCharCode(c);
+          } else if ((c & 224) === 192) {
+            value += fromCharCode((c & 31) << 6 | bytes[i++] & 63);
+          } else if ((c & 240) === 224) {
+            value += fromCharCode((c & 15) << 12 | (bytes[i++] & 63) << 6 | bytes[i++] & 63);
+          } else if ((c & 248) == 240) {
+            let codePoint = (c & 7) << 18 | (bytes[i++] & 63) << 12 | (bytes[i++] & 63) << 6 | bytes[i++] & 63;
+            if (codePoint > 65535) {
+              codePoint -= 65536;
+              value += fromCharCode(codePoint >> 10 & 1023 | 55296);
+              codePoint = 56320 | codePoint & 1023;
+            }
+            value += fromCharCode(codePoint);
+          }
+        }
+        value[0];
+        break;
+      }
+      // Array begin
+      case 91 /* OpenBracket */: {
+        value = [];
+        propertyStack.push(property);
+        objectStack.push(object);
+        stateStack.push(state);
+        property = null;
+        object = value;
+        state = 1 /* Array */;
+        continue;
+      }
+      // Object begin
+      case 123 /* OpenBrace */: {
+        value = {};
+        propertyStack.push(property);
+        objectStack.push(object);
+        stateStack.push(state);
+        property = null;
+        object = value;
+        state = 2 /* Object */;
+        continue;
+      }
+      // Array end
+      case 93 /* CloseBracket */: {
+        if (state !== 1 /* Array */) {
+          throwSyntaxError(bytes, --i);
+        }
+        value = object;
+        property = propertyStack.pop();
+        object = objectStack.pop();
+        state = stateStack.pop();
+        break;
+      }
+      // Object end
+      case 125 /* CloseBrace */: {
+        if (state !== 2 /* Object */) {
+          throwSyntaxError(bytes, --i);
+        }
+        value = object;
+        property = propertyStack.pop();
+        object = objectStack.pop();
+        state = stateStack.pop();
+        break;
+      }
+      default: {
+        throwSyntaxError(bytes, --i);
+      }
+    }
+    c = bytes[i];
+    while (c <= 32 /* Space */) {
+      c = bytes[++i];
+    }
+    switch (state) {
+      case 0 /* TopLevel */: {
+        if (i === length) {
+          return value;
+        }
+        break;
+      }
+      case 1 /* Array */: {
+        object.push(value);
+        if (c === 44 /* Comma */) {
+          i++;
+          continue;
+        }
+        if (c === 93 /* CloseBracket */) {
+          continue;
+        }
+        break;
+      }
+      case 2 /* Object */: {
+        if (property === null) {
+          property = value;
+          if (c === 58 /* Colon */) {
+            i++;
+            continue;
+          }
+        } else {
+          object[property] = value;
+          property = null;
+          if (c === 44 /* Comma */) {
+            i++;
+            continue;
+          }
+          if (c === 125 /* CloseBrace */) {
+            continue;
+          }
+        }
+        break;
+      }
+    }
+    break;
+  }
+  throwSyntaxError(bytes, i);
 }
 
 // lib/shared/common.ts
@@ -618,8 +899,8 @@ function createChannel(streamIn) {
     if (isFirstPacket) {
       isFirstPacket = false;
       let binaryVersion = String.fromCharCode(...bytes);
-      if (binaryVersion !== "0.27.3") {
-        throw new Error(`Cannot start service: Host version "${"0.27.3"}" does not match binary version ${quote(binaryVersion)}`);
+      if (binaryVersion !== "0.27.4") {
+        throw new Error(`Cannot start service: Host version "${"0.27.4"}" does not match binary version ${quote(binaryVersion)}`);
       }
       return;
     }
@@ -893,7 +1174,7 @@ function buildOrContextImpl(callName, buildKey, sendRequest, sendResponse, refs,
       const originalErrors = result.errors.slice();
       const originalWarnings = result.warnings.slice();
       if (response.outputFiles) result.outputFiles = response.outputFiles.map(convertOutputFiles);
-      if (response.metafile) result.metafile = JSON.parse(response.metafile);
+      if (response.metafile) result.metafile = parseJSON(response.metafile);
       if (response.mangleCache) result.mangleCache = response.mangleCache;
       if (response.writeToStdout !== void 0) console.log(decodeUTF8(response.writeToStdout).replace(/\n$/, ""));
       runOnEndCallbacks(result, (onEndErrors, onEndWarnings) => {
@@ -1566,9 +1847,18 @@ function jsRegExpToGoRegExp(regexp) {
   if (regexp.flags) result = `(?${regexp.flags})${result}`;
   return result;
 }
+function parseJSON(bytes) {
+  let text;
+  try {
+    text = decodeUTF8(bytes);
+  } catch {
+    return JSON_parse(bytes);
+  }
+  return JSON.parse(text);
+}
 
 // lib/deno/wasm.ts
-var version = "0.27.3";
+var version = "0.27.4";
 var build = (options) => ensureServiceIsRunning().then((service) => service.build(options));
 var context = (options) => ensureServiceIsRunning().then((service) => service.context(options));
 var transform = (input, options) => ensureServiceIsRunning().then((service) => service.transform(input, options));
@@ -1610,7 +1900,7 @@ var initialize = async (options) => {
 var startRunningService = async (wasmURL, wasmModule, useWorker) => {
   let worker;
   if (useWorker) {
-    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const a=new Error("not implemented");return a.code="ENOSYS",a};if(!globalThis.fs){let a="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1,O_DIRECTORY:-1},writeSync(i,s){a+=y.decode(s);const n=a.lastIndexOf(`\n`);return n!=-1&&(console.log(a.substring(0,n)),a=a.substring(n+1)),s.length},write(i,s,n,o,h,u){if(n!==0||o!==s.length||h!==null){u(r());return}const m=this.writeSync(i,s);u(null,m)},chmod(i,s,n){n(r())},chown(i,s,n,o){o(r())},close(i,s){s(r())},fchmod(i,s,n){n(r())},fchown(i,s,n,o){o(r())},fstat(i,s){s(r())},fsync(i,s){s(null)},ftruncate(i,s,n){n(r())},lchown(i,s,n,o){o(r())},link(i,s,n){n(r())},lstat(i,s){s(r())},mkdir(i,s,n){n(r())},open(i,s,n,o){o(r())},read(i,s,n,o,h,u){u(r())},readdir(i,s){s(r())},readlink(i,s){s(r())},rename(i,s,n){n(r())},rmdir(i,s){s(r())},stat(i,s){s(r())},symlink(i,s,n){n(r())},truncate(i,s,n){n(r())},unlink(i,s){s(r())},utimes(i,s,n,o){o(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),globalThis.path||(globalThis.path={resolve(...a){return a.join("/")}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),y=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const a=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},i=(t,e)=>{this.mem.setUint32(t+0,e,!0)},s=t=>{const e=this.mem.getUint32(t+0,!0),l=this.mem.getInt32(t+4,!0);return e+l*4294967296},n=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const l=this.mem.getUint32(t,!0);return this._values[l]},o=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let c=this._ids.get(e);c===void 0&&(c=this._idPool.pop(),c===void 0&&(c=this._values.length),this._values[c]=e,this._goRefCounts[c]=0,this._ids.set(e,c)),this._goRefCounts[c]++;let g=0;switch(typeof e){case"object":e!==null&&(g=1);break;case"string":g=2;break;case"symbol":g=3;break;case"function":g=4;break}this.mem.setUint32(t+4,2146959360|g,!0),this.mem.setUint32(t,c,!0)},h=t=>{const e=s(t+0),l=s(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,l)},u=t=>{const e=s(t+0),l=s(t+8),c=new Array(l);for(let g=0;g<l;g++)c[g]=n(e+g*8);return c},m=t=>{const e=s(t+0),l=s(t+8);return y.decode(new DataView(this._inst.exports.mem.buffer,e,l))},d=(t,e)=>(this._inst.exports.testExport0(),this._inst.exports.testExport(t,e)),w=Date.now()-performance.now();this.importObject={_gotest:{add:(t,e)=>t+e,callExport:d},gojs:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=s(t+8),l=s(t+16),c=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,l,c))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,a(t+8,(w+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();a(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},s(t+8))),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(h(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const l=this._values[e];this._values[e]=null,this._ids.delete(l),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,o(t+24,m(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(n(t+8),m(t+16));t=this._inst.exports.getsp()>>>0,o(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(n(t+8),m(t+16),n(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(n(t+8),m(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,o(t+24,Reflect.get(n(t+8),s(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(n(t+8),s(t+16),n(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=n(t+8),l=Reflect.get(e,m(t+16)),c=u(t+32),g=Reflect.apply(l,e,c);t=this._inst.exports.getsp()>>>0,o(t+56,g),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.apply(e,void 0,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.construct(e,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,a(t+16,parseInt(n(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(n(t+8)));o(t+16,e),a(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=n(t+8);h(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,n(t+8)instanceof n(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=h(t+8),l=n(t+32);if(!(l instanceof Uint8Array||l instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=n(t+8),l=h(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(a){if(!(a instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=a,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let i=4096;const s=d=>{const w=i,t=f.encode(d+"\\0");return new Uint8Array(this.mem.buffer,i,t.length).set(t),i+=t.length,i%8!==0&&(i+=8-i%8),w},n=this.argv.length,o=[];this.argv.forEach(d=>{o.push(s(d))}),o.push(0),Object.keys(this.env).sort().forEach(d=>{o.push(s(`${d}=${this.env[d]}`))}),o.push(0);const u=i;if(o.forEach(d=>{this.mem.setUint32(i,d,!0),this.mem.setUint32(i+4,0,!0),i+=8}),i>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(n,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(a){const i=this;return function(){const s={id:a,this:this,args:arguments};return i._pendingEvent=s,i._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,y=globalThis.fs,a="";y.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){a+=f.decode(u);let m=a.split(`\n`);m.length>1&&console.log(m.slice(0,-1).join(`\n`)),a=m[m.length-1]}else throw new Error("Bad write");return u.length};let i=[],s,n=0;onmessage=({data:h})=>(h.length>0&&(i.push(h),s&&s()),o),y.read=(h,u,m,d,w,t)=>{if(h!==0||m!==0||d!==u.length||w!==null)throw new Error("Bad read");if(i.length===0){s=()=>y.read(h,u,m,d,w,t);return}let e=i[0],l=Math.max(0,Math.min(d,e.length-n));u.set(e.subarray(n,n+l),m),n+=l,n===e.length&&(i.shift(),n=0),t(null,l)};let o=new globalThis.Go;return o.argv=["","--service=0.27.3"],tryToInstantiateModule(r,o).then(h=>{postMessage(null),o.run(h)},h=>{postMessage(h)}),o};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const y=await fetch(r);if(!y.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(y.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(y,f.importObject)).instance;const a=await y.arrayBuffer();return(await WebAssembly.instantiate(a,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
+    let blob = new Blob([`onmessage=${'(postMessage=>{\n// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.\nlet onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const a=new Error("not implemented");return a.code="ENOSYS",a};if(!globalThis.fs){let a="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1,O_DIRECTORY:-1},writeSync(i,s){a+=y.decode(s);const n=a.lastIndexOf(`\n`);return n!=-1&&(console.log(a.substring(0,n)),a=a.substring(n+1)),s.length},write(i,s,n,o,h,u){if(n!==0||o!==s.length||h!==null){u(r());return}const m=this.writeSync(i,s);u(null,m)},chmod(i,s,n){n(r())},chown(i,s,n,o){o(r())},close(i,s){s(r())},fchmod(i,s,n){n(r())},fchown(i,s,n,o){o(r())},fstat(i,s){s(r())},fsync(i,s){s(null)},ftruncate(i,s,n){n(r())},lchown(i,s,n,o){o(r())},link(i,s,n){n(r())},lstat(i,s){s(r())},mkdir(i,s,n){n(r())},open(i,s,n,o){o(r())},read(i,s,n,o,h,u){u(r())},readdir(i,s){s(r())},readlink(i,s){s(r())},rename(i,s,n){n(r())},rmdir(i,s){s(r())},stat(i,s){s(r())},symlink(i,s,n){n(r())},truncate(i,s,n){n(r())},unlink(i,s){s(r())},utimes(i,s,n,o){o(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),globalThis.path||(globalThis.path={resolve(...a){return a.join("/")}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),y=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const a=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},i=(t,e)=>{this.mem.setUint32(t+0,e,!0)},s=t=>{const e=this.mem.getUint32(t+0,!0),l=this.mem.getInt32(t+4,!0);return e+l*4294967296},n=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const l=this.mem.getUint32(t,!0);return this._values[l]},o=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let c=this._ids.get(e);c===void 0&&(c=this._idPool.pop(),c===void 0&&(c=this._values.length),this._values[c]=e,this._goRefCounts[c]=0,this._ids.set(e,c)),this._goRefCounts[c]++;let g=0;switch(typeof e){case"object":e!==null&&(g=1);break;case"string":g=2;break;case"symbol":g=3;break;case"function":g=4;break}this.mem.setUint32(t+4,2146959360|g,!0),this.mem.setUint32(t,c,!0)},h=t=>{const e=s(t+0),l=s(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,l)},u=t=>{const e=s(t+0),l=s(t+8),c=new Array(l);for(let g=0;g<l;g++)c[g]=n(e+g*8);return c},m=t=>{const e=s(t+0),l=s(t+8);return y.decode(new DataView(this._inst.exports.mem.buffer,e,l))},d=(t,e)=>(this._inst.exports.testExport0(),this._inst.exports.testExport(t,e)),w=Date.now()-performance.now();this.importObject={_gotest:{add:(t,e)=>t+e,callExport:d},gojs:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=s(t+8),l=s(t+16),c=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,l,c))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,a(t+8,(w+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();a(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},s(t+8))),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(h(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const l=this._values[e];this._values[e]=null,this._ids.delete(l),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,o(t+24,m(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(n(t+8),m(t+16));t=this._inst.exports.getsp()>>>0,o(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(n(t+8),m(t+16),n(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(n(t+8),m(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,o(t+24,Reflect.get(n(t+8),s(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(n(t+8),s(t+16),n(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=n(t+8),l=Reflect.get(e,m(t+16)),c=u(t+32),g=Reflect.apply(l,e,c);t=this._inst.exports.getsp()>>>0,o(t+56,g),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.apply(e,void 0,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.construct(e,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,a(t+16,parseInt(n(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(n(t+8)));o(t+16,e),a(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=n(t+8);h(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,n(t+8)instanceof n(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=h(t+8),l=n(t+32);if(!(l instanceof Uint8Array||l instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=n(t+8),l=h(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(a){if(!(a instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=a,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let i=4096;const s=d=>{const w=i,t=f.encode(d+"\\0");return new Uint8Array(this.mem.buffer,i,t.length).set(t),i+=t.length,i%8!==0&&(i+=8-i%8),w},n=this.argv.length,o=[];this.argv.forEach(d=>{o.push(s(d))}),o.push(0),Object.keys(this.env).sort().forEach(d=>{o.push(s(`${d}=${this.env[d]}`))}),o.push(0);const u=i;if(o.forEach(d=>{this.mem.setUint32(i,d,!0),this.mem.setUint32(i+4,0,!0),i+=8}),i>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(n,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(a){const i=this;return function(){const s={id:a,this:this,args:arguments};return i._pendingEvent=s,i._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,y=globalThis.fs,a="";y.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){a+=f.decode(u);let m=a.split(`\n`);m.length>1&&console.log(m.slice(0,-1).join(`\n`)),a=m[m.length-1]}else throw new Error("Bad write");return u.length};let i=[],s,n=0;onmessage=({data:h})=>(h.length>0&&(i.push(h),s&&s()),o),y.read=(h,u,m,d,w,t)=>{if(h!==0||m!==0||d!==u.length||w!==null)throw new Error("Bad read");if(i.length===0){s=()=>y.read(h,u,m,d,w,t);return}let e=i[0],l=Math.max(0,Math.min(d,e.length-n));u.set(e.subarray(n,n+l),m),n+=l,n===e.length&&(i.shift(),n=0),t(null,l)};let o=new globalThis.Go;return o.argv=["","--service=0.27.4"],tryToInstantiateModule(r,o).then(h=>{postMessage(null),o.run(h)},h=>{postMessage(h)}),o};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const y=await fetch(r);if(!y.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\\/wasm($|;)/i.test(y.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(y,f.importObject)).instance;const a=await y.arrayBuffer();return(await WebAssembly.instantiate(a,f.importObject)).instance}return r=>onmessage(r);})'}(postMessage)`], { type: "text/javascript" });
     worker = new Worker(URL.createObjectURL(blob), { type: "module" });
   } else {
     let onmessage = (postMessage=>{
@@ -1620,7 +1910,7 @@ var startRunningService = async (wasmURL, wasmModule, useWorker) => {
 let onmessage,globalThis={};for(let r=self;r;r=Object.getPrototypeOf(r))for(let f of Object.getOwnPropertyNames(r))f in globalThis||Object.defineProperty(globalThis,f,{get:()=>self[f]});(()=>{const r=()=>{const a=new Error("not implemented");return a.code="ENOSYS",a};if(!globalThis.fs){let a="";globalThis.fs={constants:{O_WRONLY:-1,O_RDWR:-1,O_CREAT:-1,O_TRUNC:-1,O_APPEND:-1,O_EXCL:-1,O_DIRECTORY:-1},writeSync(i,s){a+=y.decode(s);const n=a.lastIndexOf(`
 `);return n!=-1&&(console.log(a.substring(0,n)),a=a.substring(n+1)),s.length},write(i,s,n,o,h,u){if(n!==0||o!==s.length||h!==null){u(r());return}const m=this.writeSync(i,s);u(null,m)},chmod(i,s,n){n(r())},chown(i,s,n,o){o(r())},close(i,s){s(r())},fchmod(i,s,n){n(r())},fchown(i,s,n,o){o(r())},fstat(i,s){s(r())},fsync(i,s){s(null)},ftruncate(i,s,n){n(r())},lchown(i,s,n,o){o(r())},link(i,s,n){n(r())},lstat(i,s){s(r())},mkdir(i,s,n){n(r())},open(i,s,n,o){o(r())},read(i,s,n,o,h,u){u(r())},readdir(i,s){s(r())},readlink(i,s){s(r())},rename(i,s,n){n(r())},rmdir(i,s){s(r())},stat(i,s){s(r())},symlink(i,s,n){n(r())},truncate(i,s,n){n(r())},unlink(i,s){s(r())},utimes(i,s,n,o){o(r())}}}if(globalThis.process||(globalThis.process={getuid(){return-1},getgid(){return-1},geteuid(){return-1},getegid(){return-1},getgroups(){throw r()},pid:-1,ppid:-1,umask(){throw r()},cwd(){throw r()},chdir(){throw r()}}),globalThis.path||(globalThis.path={resolve(...a){return a.join("/")}}),!globalThis.crypto)throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");if(!globalThis.performance)throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");if(!globalThis.TextEncoder)throw new Error("globalThis.TextEncoder is not available, polyfill required");if(!globalThis.TextDecoder)throw new Error("globalThis.TextDecoder is not available, polyfill required");const f=new TextEncoder("utf-8"),y=new TextDecoder("utf-8");globalThis.Go=class{constructor(){this.argv=["js"],this.env={},this.exit=t=>{t!==0&&console.warn("exit code:",t)},this._exitPromise=new Promise(t=>{this._resolveExitPromise=t}),this._pendingEvent=null,this._scheduledTimeouts=new Map,this._nextCallbackTimeoutID=1;const a=(t,e)=>{this.mem.setUint32(t+0,e,!0),this.mem.setUint32(t+4,Math.floor(e/4294967296),!0)},i=(t,e)=>{this.mem.setUint32(t+0,e,!0)},s=t=>{const e=this.mem.getUint32(t+0,!0),l=this.mem.getInt32(t+4,!0);return e+l*4294967296},n=t=>{const e=this.mem.getFloat64(t,!0);if(e===0)return;if(!isNaN(e))return e;const l=this.mem.getUint32(t,!0);return this._values[l]},o=(t,e)=>{if(typeof e=="number"&&e!==0){if(isNaN(e)){this.mem.setUint32(t+4,2146959360,!0),this.mem.setUint32(t,0,!0);return}this.mem.setFloat64(t,e,!0);return}if(e===void 0){this.mem.setFloat64(t,0,!0);return}let c=this._ids.get(e);c===void 0&&(c=this._idPool.pop(),c===void 0&&(c=this._values.length),this._values[c]=e,this._goRefCounts[c]=0,this._ids.set(e,c)),this._goRefCounts[c]++;let g=0;switch(typeof e){case"object":e!==null&&(g=1);break;case"string":g=2;break;case"symbol":g=3;break;case"function":g=4;break}this.mem.setUint32(t+4,2146959360|g,!0),this.mem.setUint32(t,c,!0)},h=t=>{const e=s(t+0),l=s(t+8);return new Uint8Array(this._inst.exports.mem.buffer,e,l)},u=t=>{const e=s(t+0),l=s(t+8),c=new Array(l);for(let g=0;g<l;g++)c[g]=n(e+g*8);return c},m=t=>{const e=s(t+0),l=s(t+8);return y.decode(new DataView(this._inst.exports.mem.buffer,e,l))},d=(t,e)=>(this._inst.exports.testExport0(),this._inst.exports.testExport(t,e)),w=Date.now()-performance.now();this.importObject={_gotest:{add:(t,e)=>t+e,callExport:d},gojs:{"runtime.wasmExit":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);this.exited=!0,delete this._inst,delete this._values,delete this._goRefCounts,delete this._ids,delete this._idPool,this.exit(e)},"runtime.wasmWrite":t=>{t>>>=0;const e=s(t+8),l=s(t+16),c=this.mem.getInt32(t+24,!0);globalThis.fs.writeSync(e,new Uint8Array(this._inst.exports.mem.buffer,l,c))},"runtime.resetMemoryDataView":t=>{t>>>=0,this.mem=new DataView(this._inst.exports.mem.buffer)},"runtime.nanotime1":t=>{t>>>=0,a(t+8,(w+performance.now())*1e6)},"runtime.walltime":t=>{t>>>=0;const e=new Date().getTime();a(t+8,e/1e3),this.mem.setInt32(t+16,e%1e3*1e6,!0)},"runtime.scheduleTimeoutEvent":t=>{t>>>=0;const e=this._nextCallbackTimeoutID;this._nextCallbackTimeoutID++,this._scheduledTimeouts.set(e,setTimeout(()=>{for(this._resume();this._scheduledTimeouts.has(e);)console.warn("scheduleTimeoutEvent: missed timeout event"),this._resume()},s(t+8))),this.mem.setInt32(t+16,e,!0)},"runtime.clearTimeoutEvent":t=>{t>>>=0;const e=this.mem.getInt32(t+8,!0);clearTimeout(this._scheduledTimeouts.get(e)),this._scheduledTimeouts.delete(e)},"runtime.getRandomData":t=>{t>>>=0,crypto.getRandomValues(h(t+8))},"syscall/js.finalizeRef":t=>{t>>>=0;const e=this.mem.getUint32(t+8,!0);if(this._goRefCounts[e]--,this._goRefCounts[e]===0){const l=this._values[e];this._values[e]=null,this._ids.delete(l),this._idPool.push(e)}},"syscall/js.stringVal":t=>{t>>>=0,o(t+24,m(t+8))},"syscall/js.valueGet":t=>{t>>>=0;const e=Reflect.get(n(t+8),m(t+16));t=this._inst.exports.getsp()>>>0,o(t+32,e)},"syscall/js.valueSet":t=>{t>>>=0,Reflect.set(n(t+8),m(t+16),n(t+32))},"syscall/js.valueDelete":t=>{t>>>=0,Reflect.deleteProperty(n(t+8),m(t+16))},"syscall/js.valueIndex":t=>{t>>>=0,o(t+24,Reflect.get(n(t+8),s(t+16)))},"syscall/js.valueSetIndex":t=>{t>>>=0,Reflect.set(n(t+8),s(t+16),n(t+24))},"syscall/js.valueCall":t=>{t>>>=0;try{const e=n(t+8),l=Reflect.get(e,m(t+16)),c=u(t+32),g=Reflect.apply(l,e,c);t=this._inst.exports.getsp()>>>0,o(t+56,g),this.mem.setUint8(t+64,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+56,e),this.mem.setUint8(t+64,0)}},"syscall/js.valueInvoke":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.apply(e,void 0,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueNew":t=>{t>>>=0;try{const e=n(t+8),l=u(t+16),c=Reflect.construct(e,l);t=this._inst.exports.getsp()>>>0,o(t+40,c),this.mem.setUint8(t+48,1)}catch(e){t=this._inst.exports.getsp()>>>0,o(t+40,e),this.mem.setUint8(t+48,0)}},"syscall/js.valueLength":t=>{t>>>=0,a(t+16,parseInt(n(t+8).length))},"syscall/js.valuePrepareString":t=>{t>>>=0;const e=f.encode(String(n(t+8)));o(t+16,e),a(t+24,e.length)},"syscall/js.valueLoadString":t=>{t>>>=0;const e=n(t+8);h(t+16).set(e)},"syscall/js.valueInstanceOf":t=>{t>>>=0,this.mem.setUint8(t+24,n(t+8)instanceof n(t+16)?1:0)},"syscall/js.copyBytesToGo":t=>{t>>>=0;const e=h(t+8),l=n(t+32);if(!(l instanceof Uint8Array||l instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},"syscall/js.copyBytesToJS":t=>{t>>>=0;const e=n(t+8),l=h(t+16);if(!(e instanceof Uint8Array||e instanceof Uint8ClampedArray)){this.mem.setUint8(t+48,0);return}const c=l.subarray(0,e.length);e.set(c),a(t+40,c.length),this.mem.setUint8(t+48,1)},debug:t=>{console.log(t)}}}}async run(a){if(!(a instanceof WebAssembly.Instance))throw new Error("Go.run: WebAssembly.Instance expected");this._inst=a,this.mem=new DataView(this._inst.exports.mem.buffer),this._values=[NaN,0,null,!0,!1,globalThis,this],this._goRefCounts=new Array(this._values.length).fill(1/0),this._ids=new Map([[0,1],[null,2],[!0,3],[!1,4],[globalThis,5],[this,6]]),this._idPool=[],this.exited=!1;let i=4096;const s=d=>{const w=i,t=f.encode(d+"\0");return new Uint8Array(this.mem.buffer,i,t.length).set(t),i+=t.length,i%8!==0&&(i+=8-i%8),w},n=this.argv.length,o=[];this.argv.forEach(d=>{o.push(s(d))}),o.push(0),Object.keys(this.env).sort().forEach(d=>{o.push(s(`${d}=${this.env[d]}`))}),o.push(0);const u=i;if(o.forEach(d=>{this.mem.setUint32(i,d,!0),this.mem.setUint32(i+4,0,!0),i+=8}),i>=12288)throw new Error("total length of command line and environment variables exceeds limit");this._inst.exports.run(n,u),this.exited&&this._resolveExitPromise(),await this._exitPromise}_resume(){if(this.exited)throw new Error("Go program has already exited");this._inst.exports.resume(),this.exited&&this._resolveExitPromise()}_makeFuncWrapper(a){const i=this;return function(){const s={id:a,this:this,args:arguments};return i._pendingEvent=s,i._resume(),s.result}}}})(),onmessage=({data:r})=>{let f=new TextDecoder,y=globalThis.fs,a="";y.writeSync=(h,u)=>{if(h===1)postMessage(u);else if(h===2){a+=f.decode(u);let m=a.split(`
 `);m.length>1&&console.log(m.slice(0,-1).join(`
-`)),a=m[m.length-1]}else throw new Error("Bad write");return u.length};let i=[],s,n=0;onmessage=({data:h})=>(h.length>0&&(i.push(h),s&&s()),o),y.read=(h,u,m,d,w,t)=>{if(h!==0||m!==0||d!==u.length||w!==null)throw new Error("Bad read");if(i.length===0){s=()=>y.read(h,u,m,d,w,t);return}let e=i[0],l=Math.max(0,Math.min(d,e.length-n));u.set(e.subarray(n,n+l),m),n+=l,n===e.length&&(i.shift(),n=0),t(null,l)};let o=new globalThis.Go;return o.argv=["","--service=0.27.3"],tryToInstantiateModule(r,o).then(h=>{postMessage(null),o.run(h)},h=>{postMessage(h)}),o};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const y=await fetch(r);if(!y.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(y.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(y,f.importObject)).instance;const a=await y.arrayBuffer();return(await WebAssembly.instantiate(a,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
+`)),a=m[m.length-1]}else throw new Error("Bad write");return u.length};let i=[],s,n=0;onmessage=({data:h})=>(h.length>0&&(i.push(h),s&&s()),o),y.read=(h,u,m,d,w,t)=>{if(h!==0||m!==0||d!==u.length||w!==null)throw new Error("Bad read");if(i.length===0){s=()=>y.read(h,u,m,d,w,t);return}let e=i[0],l=Math.max(0,Math.min(d,e.length-n));u.set(e.subarray(n,n+l),m),n+=l,n===e.length&&(i.shift(),n=0),t(null,l)};let o=new globalThis.Go;return o.argv=["","--service=0.27.4"],tryToInstantiateModule(r,o).then(h=>{postMessage(null),o.run(h)},h=>{postMessage(h)}),o};async function tryToInstantiateModule(r,f){if(r instanceof WebAssembly.Module)return WebAssembly.instantiate(r,f.importObject);const y=await fetch(r);if(!y.ok)throw new Error(`Failed to download ${JSON.stringify(r)}`);if("instantiateStreaming"in WebAssembly&&/^application\/wasm($|;)/i.test(y.headers.get("Content-Type")||""))return(await WebAssembly.instantiateStreaming(y,f.importObject)).instance;const a=await y.arrayBuffer();return(await WebAssembly.instantiate(a,f.importObject)).instance}return r=>onmessage(r);})((data) => worker.onmessage({ data }));
     let go;
     worker = {
       onmessage: null,
